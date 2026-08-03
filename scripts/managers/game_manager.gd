@@ -1,0 +1,2 @@
+extends GameSystem
+class_name GameManager

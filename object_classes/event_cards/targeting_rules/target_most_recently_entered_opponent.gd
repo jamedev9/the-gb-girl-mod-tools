@@ -1,0 +1,2 @@
+extends TargetingRule
+class_name TargetMostRecentlyEnteredOpponent
