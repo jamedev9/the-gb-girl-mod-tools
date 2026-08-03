@@ -4,6 +4,7 @@ Download the project, then download Godot 4.5.1 and open the project in Godot.
 
 ## Setup
 Open the mod_info_config.gd scipt. Add your name and the name of the mod, then run the script (ctrl+shift+x).
+The tool comes with an example mod with 2 video clips and a character definition, these can safely be deleted.
 
 ## How to
 The project contains the relevant files required to make mods and content for the game.

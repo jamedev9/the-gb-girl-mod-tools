@@ -1,11 +1,10 @@
 [gd_resource type="Resource" script_class="VideoClip" load_steps=3 format=3 uid="uid://y38tvbpq42gn"]
 
-[ext_resource type="Script" uid="uid://be8rquaxumaj8" path="res://resources/videos/database/video_clip.gd" id="1_pe3md"]
-[ext_resource type="VideoStream" uid="uid://o3pnhrbdg1w7" path="res://data/videos/b_blowbang_02.ogv" id="2_pe3md"]
+[ext_resource type="Script" uid="uid://ulhrv0fyh0r7" path="res://resources/videos/database/video_clip.gd" id="1_pe3md"]
+[ext_resource type="VideoStream" uid="uid://o3pnhrbdg1w7" path="res://mod_export_data/videos/b_blowbang_02.ogv" id="2_pe3md"]
 
 [resource]
 script = ExtResource("1_pe3md")
 video_file = ExtResource("2_pe3md")
 action_tags = Array[int]([7])
 participant_tags = Array[int]([1])
-metadata/_custom_type_script = "uid://be8rquaxumaj8"
