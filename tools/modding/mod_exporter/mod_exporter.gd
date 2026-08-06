@@ -70,21 +70,34 @@ func _get_game_mods_folder() -> String:
 	return godot_app_data_root.path_join("app_userdata").path_join(GAME_APP_USER_DATA_FOLDER_NAME).path_join("mods")
 
 func _export_all_of_type(config: ExportConfig, mod_root: String) -> void:
-	var dir := DirAccess.open(config.search_path)
+	var tres_paths: Array[String] = []
+	_collect_tres_paths_recursive(config.search_path, tres_paths)
+
+	for tres_path in tres_paths:
+		var resource: Resource = load(tres_path)
+		if resource is ModExportable:
+			_export_single_resource(resource, mod_root)
+		else:
+			push_warning("Skipped non-ModExportable resource: %s" % tres_path)
+
+func _collect_tres_paths_recursive(folder_path: String, out_paths: Array[String]) -> void:
+	var dir := DirAccess.open(folder_path)
 	if not dir:
-		push_warning("Could not open search path: %s" % config.search_path)
+		push_warning("Could not open search path: %s" % folder_path)
 		return
 
 	dir.list_dir_begin()
-	var file_name := dir.get_next()
-	while file_name != "":
-		if file_name.get_extension() == "tres":
-			var resource: Resource = load(config.search_path.path_join(file_name))
-			if resource is ModExportable:
-				_export_single_resource(resource, mod_root)
-			else:
-				push_warning("Skipped non-ModExportable resource: %s" % file_name)
-		file_name = dir.get_next()
+	var item_name := dir.get_next()
+	while item_name != "":
+		if item_name.begins_with("."):
+			item_name = dir.get_next()
+			continue
+		var full_path: String = folder_path.path_join(item_name)
+		if dir.current_is_dir():
+			_collect_tres_paths_recursive(full_path, out_paths)
+		elif item_name.get_extension() == "tres":
+			out_paths.append(full_path)
+		item_name = dir.get_next()
 	dir.list_dir_end()
 
 func _export_single_resource(resource: ModExportable, mod_root: String) -> void:

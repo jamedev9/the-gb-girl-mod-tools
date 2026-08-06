@@ -7,6 +7,8 @@ var video_clip_folder_path: String  = "res://resources/videos/video_clips/"
 
 const MODS_DIR: String = "user://mods/"
 
+var _imported_video_file_names: Dictionary = {} ### sanitized file name -> true, tracks dupes across all mods this load
+
 func _load_video_clips_into_database() -> VideoDatabase:
 	var new_database: VideoDatabase = VideoDatabase.new()
 	var video_clips = Utils.load_resources_in_folder(video_clip_folder_path)
@@ -24,10 +26,11 @@ func get_video_by_tags(
 ### Claude-induced modding, added 19.07.26
 
 func _load_mod_video_clips() -> Array[VideoClip]:
+	_imported_video_file_names.clear()
 	var loaded_clips: Array[VideoClip] = []
 	if not DirAccess.dir_exists_absolute(MODS_DIR):
 		DirAccess.make_dir_recursive_absolute(MODS_DIR)
-		print("No mods folder found at %s, skipping mod video loading." % MODS_DIR)
+		#print("No mods folder found at %s, skipping mod video loading." % MODS_DIR)
 		#return loaded_clips
 	var mods_dir: DirAccess = DirAccess.open(MODS_DIR)
 	mods_dir.list_dir_begin()
@@ -85,25 +88,36 @@ func _load_clips_from_json_file(json_path: String, videos_path: String) -> Array
 	if json.parse(json_text) != OK:
 		push_warning("Failed to parse JSON at %s" % json_path)
 		return clips
-	if json.data is not Array:
-		push_warning("%s must contain a JSON array at the top level." % json_path)
-		return clips
-	var entries: Array = json.data
-	for entry in entries:
-		if entry is not Dictionary:
-			push_warning("Skipping malformed clip entry (not an object) in %s" % json_path)
-			continue
-		var clip: VideoClip = _build_video_clip_from_json(entry, videos_path)
+
+	if json.data is Array:
+		### Bundle format: many clips in one file, each entry uses "file" as the key
+		var entries: Array = json.data
+		for entry in entries:
+			if entry is not Dictionary:
+				push_warning("Skipping malformed clip entry (not an object) in %s" % json_path)
+				continue
+			var clip: VideoClip = _build_video_clip_from_json(entry, videos_path)
+			if clip:
+				clips.append(clip)
+	elif json.data is Dictionary:
+		### Single-clip format, exported by the mod tool, uses "video_file" as the key
+		var clip: VideoClip = _build_video_clip_from_json(json.data, videos_path)
 		if clip:
 			clips.append(clip)
+	else:
+		push_warning("%s must contain either a JSON object (single clip) or a JSON array (multiple clips) at the top level." % json_path)
+
 	return clips
 
 func _build_video_clip_from_json(entry: Dictionary, videos_path: String) -> VideoClip:
-	if not entry.has("file"):
-		push_warning("Mod clip entry missing 'file' field: %s" % JSON.stringify(entry))
+	var raw_file_name: String = ""
+	if entry.has("file"):
+		raw_file_name = entry["file"]
+	elif entry.has("video_file"):
+		raw_file_name = entry["video_file"]
+	else:
+		push_warning("Mod clip entry missing 'file'/'video_file' field: %s" % JSON.stringify(entry))
 		return null
-	
-	var raw_file_name: String = entry["file"]
 	#print("Importing file name: %s" % raw_file_name)
 	
 	var sanitized_file_name: String = _sanitize_file_name(raw_file_name)
@@ -115,6 +129,10 @@ func _build_video_clip_from_json(entry: Dictionary, videos_path: String) -> Vide
 	
 	if not sanitized_file_name.ends_with(".ogv"):
 		push_warning("Rejected clip '%s': only .ogv files are supported." % sanitized_file_name)
+		return null
+
+	if sanitized_file_name in _imported_video_file_names.keys():
+		push_warning("Skipping duplicate video clip '%s' — a clip referencing this file was already imported." % sanitized_file_name)
 		return null
 	
 	var video_path: String = videos_path + sanitized_file_name
@@ -131,9 +149,9 @@ func _build_video_clip_from_json(entry: Dictionary, videos_path: String) -> Vide
 	clip.video_file = video_stream
 	clip.action_tags = _parse_action_tags(entry.get("action_tags", []), sanitized_file_name)
 	clip.participant_tags = _parse_participant_tags(entry.get("participant_tags", []), sanitized_file_name)
-	#clip.action_tags = _parse_tags(entry.get("action_tags", []), VideoClip.ActionTags, sanitized_file_name)
-	#clip.participant_tags = _parse_tags(entry.get("participant_tags", []), VideoClip.ParticipantTags, sanitized_file_name)
 	clip.weight = _sanitize_weight(entry.get("weight", 1.0))
+
+	_imported_video_file_names[sanitized_file_name] = true
 	
 	#print("Successfully imported clip: %s" % sanitized_file_name)
 	return clip
@@ -186,18 +204,6 @@ func _parse_participant_tags(tag_names: Array, clip_file_name: String) -> Array[
 			push_warning("Unknown participant tag '%s' in clip '%s', skipping tag." % [tag_name, clip_file_name])
 	return parsed
 
-#func _parse_tags(tag_names: Array, enum_dict: Dictionary, clip_file_name: String) -> Array[VideoClip.ActionTags]:
-	#var parsed: Array = []
-	#for tag_name in tag_names:
-		#if tag_name is not String:
-			#push_warning("Non-string tag found in clip '%s', skipping tag." % clip_file_name)
-			#continue
-		#if enum_dict.has(tag_name):
-			#parsed.append(enum_dict[tag_name])
-		#else:
-			#push_warning("Unknown tag '%s' in clip '%s', skipping tag." % [tag_name, clip_file_name])
-	#return parsed
-
 func _sanitize_weight(raw_weight) -> float:
 	if raw_weight is not float and raw_weight is not int:
 		push_warning("Invalid weight value, defaulting to 1.0")
@@ -210,3 +216,4 @@ func _sanitize_weight(raw_weight) -> float:
 		push_warning("Weight unreasonably high, clamping to 100.0")
 		return 100.0
 	return weight
+#

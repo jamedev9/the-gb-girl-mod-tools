@@ -2,6 +2,7 @@ extends Node
 class_name GlobalAutoloadDatabase
 
 const MODS_ROOT: String = "user://mods" ### Root path to where the mods are stored.
+const EXCLUDED_ENCOUNTER_IDS_IN_RELEASE: Array[String] = ["test"] ### use the actual encounter_id value, not a filename
 
 @onready var status_effects_by_id: Dictionary[String,StatusEffectDefinition] = _load_status_effects()
  #{
@@ -116,9 +117,15 @@ func get_passive_effect_def(passive_effect_id: String) -> PassiveEffectDefinitio
 @onready var encounter_definitions: Dictionary[String,EncounterDefinition] = _load_encounters()
 func _load_encounters() -> Dictionary[String,EncounterDefinition]:
 	var encounter_defs: Dictionary[String,EncounterDefinition] = {}
-	var all_encounters: Array = Utils.get_files_in_folder("res://object_classes/meta_game_objects/encounter_definitions/",".tres",[".uid",".remap"])
+	var filter_strings: Array[String] = [".uid",".remap"]
+	var all_encounters: Array = Utils.get_files_in_folder("res://object_classes/meta_game_objects/encounter_definitions/",".tres",filter_strings)
 	for encounter_path in all_encounters:
 		var encounter_def: EncounterDefinition = load(encounter_path)
+		if not encounter_def:
+			push_warning("Failed to load encounter at path: %s" % encounter_path)
+			continue
+		if not OS.is_debug_build() and encounter_def.encounter_id in EXCLUDED_ENCOUNTER_IDS_IN_RELEASE:
+			continue
 		encounter_defs[encounter_def.encounter_id] = encounter_def
 	return encounter_defs
 

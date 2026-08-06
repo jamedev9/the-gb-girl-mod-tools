@@ -7,6 +7,7 @@ var player_won: bool = false
 var player_lost: bool = false
 var opponents_defeated: Dictionary[String,int] = {} #Opponent type name, number
 var event_cards_played: Dictionary[String,int] = {} #Event card ID, number
+var event_cards_played_per_turn: Dictionary[int,Dictionary] = {}
 var action_usage: Dictionary[String,ActionUsageStats] = {} # Action ID
 var orgasms_achieved: int = 0
 #var round_counter: int = 0
@@ -64,12 +65,20 @@ func increment_opponents_defeated_this_turn(game_state: GameState) -> void:
 	else:
 		opponents_defeated_each_turn[game_state.current_round] += 1
 
-func record_event_card_played(event_card_def: EventCardDefinition) -> void:
+func record_event_card_played(event_card_def: EventCardDefinition,game_state: GameState) -> void:
 	var event_card_id = event_card_def.card_type_id
 	if event_card_id not in event_cards_played.keys():
 		event_cards_played[event_card_id] = 1
 	else:
 		event_cards_played[event_card_id] += 1
+	
+	if game_state.current_round not in event_cards_played_per_turn.keys():
+		event_cards_played_per_turn[game_state.current_round] = {}
+	
+	if event_card_id not in event_cards_played_per_turn[game_state.current_round].keys():
+		event_cards_played_per_turn[game_state.current_round][event_card_id] = 1
+	else:
+		event_cards_played_per_turn[game_state.current_round][event_card_id] += 1
 
 func record_damage_to_opponent(action_id: String,opponent_type_id: String, damage: int) -> void:
 	action_usage[action_id].record_damage_to_opponent(opponent_type_id,damage)
@@ -109,6 +118,13 @@ func get_times_card_has_been_played(card_id: String) -> int:
 	if card_id not in event_cards_played:
 		return 0
 	return event_cards_played[card_id]
+
+func get_times_card_has_been_played_in_round(round_nr: int, card_id: String) -> int:
+	if round_nr not in event_cards_played_per_turn.keys():
+		return 0
+	if card_id not in event_cards_played_per_turn[round_nr].keys():
+		return 0
+	return event_cards_played_per_turn[round_nr][card_id]
 	
 func get_nr_of_opponents_defeated_on_turn(turn: int) -> int:
 	if opponents_defeated_each_turn.is_empty():

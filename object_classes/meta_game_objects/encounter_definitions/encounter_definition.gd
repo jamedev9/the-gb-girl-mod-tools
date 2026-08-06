@@ -28,3 +28,6 @@ class_name EncounterDefinition
 	#"invert_outgoing_damage":1,
 	#"player_dubs_damage": 1,
 }
+
+@export var forbid_all_summons: bool = false
+@export var forbidden_ally_summons: Array[String] = [] #ID of opponent type. Use for lore or challenge reasons

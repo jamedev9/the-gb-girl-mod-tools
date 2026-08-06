@@ -39,7 +39,12 @@ func _ready() -> void:
 	main_game.connect("game_state_changed", Callable(self,"update_class_specific_displays"))
 	connect("tooltip_requested",Callable(main_game.popup_controller,"_handle_tooltip_request"))
 	connect("tooltip_cleared",Callable(main_game.popup_controller,"_handle_clear_tooltip_request"))
+	main_game.connect("finished_playing_fragment_animations",Callable(self,"_on_fragment_animations_finished"))
 	
+func _on_fragment_animations_finished() -> void:
+	#Overwrite in child classes 
+	pass
+
 func update_class_specific_displays(_game_state: GameState) -> void:
 	#Overwrite in child classes 
 	pass

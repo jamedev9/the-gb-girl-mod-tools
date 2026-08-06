@@ -286,9 +286,25 @@ func add_event_cards_from_save_game_deck(save_game_state:SaveGameState) -> void:
 		else:
 			event_cards_starting_deck[card_id] += save_game_state.get_current_deck()[card_id]
 	
+	_handle_ally_summon(save_game_state)
+
+func _handle_ally_summon(save_game_state: SaveGameState) -> void:
+	if not current_encounter:
+		return
+	if current_encounter.forbid_all_summons:
+		return
+	
 	var current_ally_card: String = save_game_state.get_current_ally_card()
-	if current_ally_card != "":
-		event_cards_starting_hand[current_ally_card] = 1
+	if current_ally_card == "":
+		return
+	var current_ally_type: String = save_game_state.get_current_ally_type()
+	if current_ally_type in current_encounter.forbidden_ally_summons:
+		return
+	
+	event_cards_starting_hand[current_ally_card] = 1
+
+func record_event_card_played(event_card_def: EventCardDefinition) -> void:
+	encounter_report.record_event_card_played(event_card_def,self)
 
 #region Card instance tracking (debug/validation):
 var _all_event_card_instances: Dictionary[String, EventCardInstance] = {} # entity_id -> instance
