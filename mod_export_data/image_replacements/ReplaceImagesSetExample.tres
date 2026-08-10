@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="ImageReplacementSet" load_steps=6 format=3 uid="uid://c484gk7uf5af0"]
+
+[ext_resource type="Script" uid="uid://cudi1bsicc5lx" path="res://tools/modding/image_replacement/image_replacement.gd" id="1_o20xc"]
+[ext_resource type="Script" uid="uid://tcj4af2wqd3b" path="res://tools/modding/image_replacement/image_replacement_set.gd" id="2_vt6ca"]
+
+[sub_resource type="Resource" id="Resource_o20xc"]
+script = ExtResource("1_o20xc")
+target_id = "kiss_the_cock"
+image_path = "uid://dq0woygq54g0k"
+metadata/_custom_type_script = "uid://0uy3884mdwnr"
+
+[sub_resource type="Resource" id="Resource_vt6ca"]
+script = ExtResource("1_o20xc")
+replacement_type = 1
+target_id = "bj"
+image_path = "uid://jnc3dpc5pvn1"
+metadata/_custom_type_script = "uid://0uy3884mdwnr"
+
+[sub_resource type="Resource" id="Resource_ux1wd"]
+script = ExtResource("1_o20xc")
+replacement_type = 2
+target_id = "wingman"
+image_path = "uid://cm1qjr267dlaj"
+metadata/_custom_type_script = "uid://0uy3884mdwnr"
+
+[resource]
+script = ExtResource("2_vt6ca")
+replacements = Array[ExtResource("1_o20xc")]([SubResource("Resource_o20xc"), SubResource("Resource_vt6ca"), SubResource("Resource_ux1wd")])

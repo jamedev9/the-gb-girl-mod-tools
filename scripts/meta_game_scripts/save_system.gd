@@ -22,31 +22,6 @@ func save_exists(slot: int) -> bool:
 	var path := _get_save_path(slot)
 	return FileAccess.file_exists(path)
 
-#func load_save(slot: int) -> SaveGameState:
-	#var path: String = _get_save_path(slot)
-	#
-	#if not FileAccess.file_exists(path):
-		#push_warning("Save file at slot %s does not exist, making a new save."%slot)
-		#return _create_new_save()
-	#
-	#var file = FileAccess.open(path,FileAccess.READ)
-	#if file == null:
-		#push_error("Failed to open save at path %s" %path)
-		#return _create_new_save()
-	#
-	#var json_text: String = FileAccess.get_file_as_string(path)
-	#file.close()
-	#
-	#var json = JSON.new()
-	#var parse_result = json.parse(json_text)
-	#if parse_result != OK:
-		#push_error("Failed to parse saved JSON. Returning new save.")
-		#return _create_new_save()
-	#
-	#var data: Dictionary = json.data
-	##print(data)
-	#return _build_save_from_dict(data)
-
 func load_save(slot: int) -> SaveGameState:
 	var path: String = _get_save_path(slot)
 	
@@ -229,18 +204,6 @@ func _write_player_progression(progression: PlayerProgression = player_progressi
 	file.store_string(json_text)
 	file.close()
 
-#func _write_player_progression() -> void:
-	#_ensure_save_dir_exists()
-	#
-	#var file = FileAccess.open(PROGRESSION_PATH, FileAccess.WRITE)
-	#if file == null:
-		#push_error("Failed to open player progression file for writing.")
-		#return
-	#
-	#var data = player_progression.to_dict()
-	#var json_text = JSON.stringify(data, "\t")
-	#file.store_string(json_text)
-	#file.close()
 
 func _create_new_player_progression() -> PlayerProgression:
 	return PlayerProgression.new()

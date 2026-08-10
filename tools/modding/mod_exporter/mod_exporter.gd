@@ -18,6 +18,7 @@ class ExportConfig:
 var export_configs: Array[ExportConfig] = [
 	ExportConfig.new("res://mod_export_data/characters/", CharacterDefinition),
 	ExportConfig.new("res://mod_export_data/videos/", VideoClip),
+	ExportConfig.new("res://mod_export_data/image_replacements/", ImageReplacementSet),
 ]
 
 func _run() -> void:
@@ -108,15 +109,26 @@ func _export_single_resource(resource: ModExportable, mod_root: String) -> void:
 			return
 
 	var json_dict: Dictionary = resource.to_json_dict()
-	var file_fields: Dictionary = resource.get_file_reference_fields()
 
+	var file_fields: Dictionary = resource.get_file_reference_fields()
 	for json_key in file_fields.keys():
 		var subfolder: String = file_fields[json_key]
 		var source_path: String = json_dict.get(json_key, "")
 		if source_path == "":
 			continue
-		var copied_file_name: String = _copy_file_into_mod(source_path, mod_root, subfolder)
-		json_dict[json_key] = copied_file_name ### rewrite res:// path -> plain filename
+		json_dict[json_key] = _copy_file_into_mod(source_path, mod_root, subfolder)
+
+	var array_file_fields: Dictionary = resource.get_array_file_reference_fields()
+	for array_field_name in array_file_fields.keys():
+		var config: Dictionary = array_file_fields[array_field_name]
+		var file_key: String = config["file_key"]
+		var subfolder: String = config["subfolder"]
+		var entries: Array = json_dict.get(array_field_name, [])
+		for entry in entries:
+			var source_path: String = entry.get(file_key, "")
+			if source_path == "":
+				continue
+			entry[file_key] = _copy_file_into_mod(source_path, mod_root, subfolder)
 
 	var output_subfolder: String = resource.get_mod_export_subfolder()
 	var output_path: String = mod_root.path_join(output_subfolder).path_join(resource.resource_path.get_file().get_basename() + ".json")

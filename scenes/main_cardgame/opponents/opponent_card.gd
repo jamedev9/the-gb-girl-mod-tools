@@ -17,6 +17,7 @@ class_name OpponentCard
 @export var background_color: ColorRect
 @export var opponent_action_mini_display: OpponentActionMiniDisplay
 @export var current_healing_container: Control
+@export var video_and_idle_pic: Control
 
 var opponent_id: String
 var displayed_opponent_instance: OpponentInstance
@@ -135,7 +136,8 @@ func update_opponent_display(game_state: GameState) -> void:
 	var opponent_instance: OpponentInstance = game_state.get_opponent_instance(self.opponent_id)
 	if opponent_instance == null:
 		return
-	opponent_picture.texture = opponent_instance.opponent_type.picture
+		
+	_set_opponent_picture_from_type(opponent_instance.opponent_type)
 	opponent_type.text = opponent_instance.opponent_type.opponent_type_name
 	_handle_player_action_card(game_state)
 	#_handle_upcoming_opponent_action(game_state,self.opponent_id)
@@ -143,10 +145,16 @@ func update_opponent_display(game_state: GameState) -> void:
 	_handle_active_status_effects(game_state,self.opponent_id)
 
 func _show_opponent_type_info(given_opponent_type: OpponentType) -> void:
-	opponent_picture.texture = given_opponent_type.picture
+	_set_opponent_picture_from_type(given_opponent_type)
 	opponent_name.text = displayed_opponent_instance.opponent_name
 	opponent_type.text = given_opponent_type.opponent_type_name
 
+func _set_opponent_picture_from_type(given_opponent_type: OpponentType) -> void:
+	var picture: Texture2D
+	picture = ImageOverrideManager.get_override_texture(ImageOverrideManager.ReplacementType.OPPONENT_TYPE_IMAGE,given_opponent_type.opponent_type_id)
+	if not picture:
+		picture = given_opponent_type.picture
+	opponent_picture.texture = picture
 
 func display_opponent_as_tooltip(opponent_type_id: String) -> void:
 	displayed_opponent_type = AutoloadDatabase.opponent_types[opponent_type_id]
@@ -163,7 +171,6 @@ func _handle_player_action_card(game_state:GameState) -> void:
 	active_player_action_id = action_id
 	var action = AutoloadDatabase.get_player_action_by_id(action_id)
 	_display_active_player_action(action)
-	#enable_dragging()
 
 
 func _display_active_player_action(action: PlayerAction) -> void:
@@ -182,6 +189,10 @@ func _pop_video_player() -> void:
 	AnimationHelper_NodeFlasher._pop_node(video_panel_container,POP_SIGNIFICANCE,POP_SCALE,POP_DURATION)
 
 func _show_matching_video(action: PlayerAction) -> void:
+	if not main_game.settings_manager.get_videos_on_opponents_setting():
+		self.player_action_video.visible = false
+		_expand_static_action_image(action)
+		return
 	if action == null:
 		self.player_action_video.visible = false
 		return
@@ -197,25 +208,51 @@ func _show_matching_video(action: PlayerAction) -> void:
 	self.player_action_video.visible = true
 	self.player_action_video.stream = clip.video_file
 	self.player_action_video.play()
-	
+	_shrink_static_action_image()
+
+func _expand_static_action_image(action: PlayerAction) -> void:
+	video_and_idle_pic.visible = false
+	var action_pic_panel: Control = active_player_action_pic.get_parent()
+	action_pic_panel.visible = (action != null)
+	action_pic_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	action_pic_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	active_player_action_pic.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	active_player_action_pic.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	active_player_action_pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+
+func _shrink_static_action_image() -> void:
+	video_and_idle_pic.visible = true
+	var action_pic_panel: Control = active_player_action_pic.get_parent()
+	action_pic_panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	action_pic_panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	active_player_action_pic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	active_player_action_pic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+
 #func _show_matching_video(action: PlayerAction) -> void:
-	##print("Running _show_matching_video")
-	#self.player_action_video.visible = true
+	#if not main_game.settings_manager.get_videos_on_opponents_setting():
+		#self.player_action_video.visible = false
+		#_expand_static_action_image()
+		#return
 	#if action == null:
-		##print("null action")
 		#self.player_action_video.visible = false
 		#return
 	#if action.video_action_tags.is_empty():
-		##print("No video tags for action")
+		#self.player_action_video.visible = false
 		#return
-#
-	#var participant_type_tags: Array[VideoClip.ParticipantTags] = displayed_opponent_type.video_particpant_tags
-	#var clip: VideoClip = VideoPlayerSystem.get_video_by_tags(action.video_action_tags,participant_type_tags)
-	##var clip: VideoClip = VideoPlayerSystem.get_video_by_tags(action.video_action_tags,[])
+	#var participant_type_tags: Array[VideoClip.ParticipantTags] = displayed_opponent_type.video_particpant_tags.duplicate(true)
+	#participant_type_tags.append_array(get_save_game_state().get_player_video_participant_tags())
+	#var clip: VideoClip = VideoPlayerSystem.get_video_by_tags(action.video_action_tags, participant_type_tags)
 	#if not clip:
+		#self.player_action_video.visible = false
 		#return
+	#self.player_action_video.visible = true
 	#self.player_action_video.stream = clip.video_file
 	#self.player_action_video.play()
+#
+#func _expand_static_action_image() -> void:
+	#
+	#pass
+
 #endregion
 
 #region Check for opponents action:

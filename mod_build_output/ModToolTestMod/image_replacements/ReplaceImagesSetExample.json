@@ -1,0 +1,19 @@
+{
+	"replacements": [
+		{
+			"image_path": "dec04391f1ef2830f16e804c46397160.jpeg",
+			"replacement_type": "EVENT_CARD_IMAGE",
+			"target_id": "kiss_the_cock"
+		},
+		{
+			"image_path": "selfie_1.jpg",
+			"replacement_type": "ACTION_CARD_IMAGE",
+			"target_id": "bj"
+		},
+		{
+			"image_path": "claude_port.png",
+			"replacement_type": "OPPONENT_TYPE_IMAGE",
+			"target_id": "wingman"
+		}
+	]
+}

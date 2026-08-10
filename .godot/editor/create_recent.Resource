@@ -1,2 +1,3 @@
+ImageReplacementSet
 CharacterDefinition
 VideoClip

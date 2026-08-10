@@ -50,19 +50,52 @@ func get_random_clip(
 func _filter_to_best_participant_match(
 	candidates: Array[VideoClip],
 	required_participant_tags: Array[VideoClip.ParticipantTags]) -> Array[VideoClip]:
-	var best_match_count: int = -1
-	var best_candidates: Array[VideoClip] = []
-	for clip in candidates:
-		var match_count: int = 0
-		for tag in required_participant_tags:
-			if tag in clip.participant_tags:
-				match_count += 1
-		if match_count > best_match_count:
-			best_match_count = match_count
-			best_candidates = [clip]
-		elif match_count == best_match_count:
-			best_candidates.append(clip)
+	
+	var required_tags_by_category: Dictionary = {}
+	for tag in required_participant_tags:
+		var category: VideoClip.ParticipantCategory = VideoClip.get_category_for_tag(tag)
+		if not required_tags_by_category.has(category):
+			required_tags_by_category[category] = []
+		required_tags_by_category[category].append(tag)
+	
+	# Priority order: man's look first, then woman's look, then flavor/misc.
+	var category_priority: Array[VideoClip.ParticipantCategory] = [
+		VideoClip.ParticipantCategory.MAN_APPEARANCE,
+		VideoClip.ParticipantCategory.WOMAN_APPEARANCE,
+		VideoClip.ParticipantCategory.MISC
+	]
+	
+	var best_candidates: Array[VideoClip] = candidates.duplicate()
+	
+	for category in category_priority:
+		if not required_tags_by_category.has(category):
+			continue # Nothing requested in this category, skip it entirely
+		
+		var tags_needed_in_category: Array = required_tags_by_category[category]
+		var matching_candidates: Array[VideoClip] = []
+		var non_matching_candidates: Array[VideoClip] = []
+		
+		for clip in best_candidates:
+			if _clip_matches_any_tag(clip, tags_needed_in_category):
+				matching_candidates.append(clip)
+			else:
+				non_matching_candidates.append(clip)
+		
+		if not matching_candidates.is_empty():
+			# At least one candidate satisfies this category — narrow to those, discard the rest.
+			best_candidates = matching_candidates
+		# If NONE match this category, we keep the full current pool as-is and move to the next
+		# (lower-priority) category rather than eliminating everyone.
+	
 	return best_candidates
+
+func _clip_matches_any_tag(clip: VideoClip, tags: Array) -> bool:
+	for tag in tags:
+		if tag in clip.participant_tags:
+			return true
+	return false
+
+
 
 #func get_random_clip(
 	#required_action_tags: Array[VideoClip.ActionTags] = [],

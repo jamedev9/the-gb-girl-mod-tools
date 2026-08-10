@@ -72,7 +72,12 @@ func display_action(action_id:String) -> void:
 			status_effect.number_of_stacks)
 		status_pics_container.add_child(new_status_pic)
 	
-	action_picture.texture = represented_action.picture
+	var picture: Texture2D
+	picture = ImageOverrideManager.get_override_texture(ImageOverrideManager.ReplacementType.ACTION_CARD_IMAGE,action_id)
+	if not picture:
+		picture = represented_action.picture
+		
+	action_picture.texture = picture
 
 func register_card_in_entity_registry() -> void:
 	if not main_game:

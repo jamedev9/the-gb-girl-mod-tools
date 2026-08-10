@@ -6,5 +6,6 @@ enum CardPermanence{
 	TEMPORARY, # Deleted when moved out of players hand.
 	REWARD, # 
 	PROBLEM, # Added by opponents/encounters to make things difficult
-	ONCE_PER_GAME # Permanent, but only playable once. Deleted from deck once resolved.
+	ONCE_PER_GAME, # Permanent, but only playable once. Deleted from deck once resolved.
+	SUPPORT # cards granted by allies with beneficial effects
 }

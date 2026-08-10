@@ -18,6 +18,14 @@ Move your video files to mod_export_data/videos. In the same folder, for each cl
 ## Custom character definitions
 In mod_export_data/characters, create a new CharacterDefinition resource. You can place a custom portrait in mod_export_data/images, then link the path of the image in the CharacterDefinition resource.
 
+## Image overrides
+In mod_export_data/image_replacements, create a new ImageReplacementSet resource. Inside this resource, add multiple ImageReplacement resources. Each ImageReplacement needs a ReplacementType, an ID for the replacement target, and a path to the image inside mod_export_data/images.
+Replacement IDs can be found on the development drive: https://docs.google.com/spreadsheets/d/e/2PACX-1vS0aepLrAZGfHcRobEaPLUdP8xXHzH_OUY8UHhFPbBQc0GqeXn04vKqrSlPEnaxqp0oyUpT6hqi_ElN/pubhtml
+The currently supported image replacements are:
+* Event Card Image: set the ID in ReplacementType to the ID of the event card.
+* Action Card Image: Use the ID of the corresponding action (bj, vaginal, anal, right_hj, left_hj)
+* Opponent Type Image: use ID of corresponding opponent type.
+
 ## Exporting the mod
 When you are ready to build the mod, open and run the "mod_exporter.gd" script (ctrl+shift+x). This will convert your resources into the correct format for the mod inside the mod_build_output folder.
 The output folder can then be moved to the mods folder of the game:

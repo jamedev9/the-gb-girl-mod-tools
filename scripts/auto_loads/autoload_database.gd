@@ -320,17 +320,7 @@ func get_map_region_by_id(region_id: String) -> MapRegionDefinition:
 	if region_id not in map_region_definitions.keys():
 		return null
 	return map_region_definitions[region_id]
-	
-#@onready var tutorial_stages: Dictionary[String, TutorialStage] = _load_tutorial_regions()
-#func _load_tutorial_regions() -> Dictionary[String, TutorialStage]:
-	#var resource_dict: Dictionary[String,TutorialStage] = {}
-	#var all_resources: Array = Utils.get_files_in_folder("res://resources/tutorial_stages/",".tres",[".uid",".remap"])
-	#for path in all_resources:
-		#var resource: TutorialStage = load(path)
-		#resource_dict[resource.stage_id] = resource
-	#return resource_dict
-#func get_tutorial_stage_by_id(id: String) -> TutorialStage:
-	#return tutorial_stages[id]
+
 
 @onready var character_definitions: Dictionary[String,CharacterDefinition] = _load_character_definitions()
 func _load_character_definitions() -> Dictionary[String,CharacterDefinition]:

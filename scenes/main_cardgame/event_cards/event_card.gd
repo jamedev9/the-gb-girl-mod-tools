@@ -27,8 +27,9 @@ var all_actions_are_disabled: bool = false
 @export var orgasm_card_style: StyleBoxFlat
 @export var once_per_game_card_style: StyleBoxFlat 
 
-
 @export var once_per_game_shader: ShaderMaterial
+@export var support_card_shader: ShaderMaterial
+
 
 #var dragable: bool = true
 var is_resolving: bool = false
@@ -72,7 +73,11 @@ func display_event_card(given_card_instance: EventCardInstance) -> void:
 	self.event_card_id =  given_card_instance.card_id
 	var event_card_def: EventCardDefinition = AutoloadDatabase.event_cards_by_id[given_card_instance.card_id]
 	event_card_name.text = event_card_def.card_name
-	event_card_picture.texture = event_card_def.card_picture
+	var picture: Texture2D
+	picture = ImageOverrideManager.get_override_texture(ImageOverrideManager.ReplacementType.EVENT_CARD_IMAGE,given_card_instance.card_id)
+	if not picture:
+		picture = event_card_def.card_picture
+	event_card_picture.texture = picture
 	event_card_energy_cost.text = str(event_card_def.energy_cost)
 	event_card_description.text = event_card_def.description
 	match given_card_instance.permanence:
@@ -84,6 +89,8 @@ func display_event_card(given_card_instance: EventCardInstance) -> void:
 			full_container.add_theme_stylebox_override("panel",problem_card_style)
 		CardInstance.CardPermanence.ONCE_PER_GAME:
 			full_container.add_theme_stylebox_override("panel",once_per_game_card_style)
+		CardInstance.CardPermanence.SUPPORT:
+			full_container.add_theme_stylebox_override("panel",reward_card_style)
 	
 	### Unique features for Orgasm Cards - these are reward cards, but need a unique visual:
 	if event_card_def is OrgasmEventCardDefinition:
@@ -97,6 +104,9 @@ func _set_material_for_card(given_card_instance: EventCardInstance) -> void:
 		CardInstance.CardPermanence.ONCE_PER_GAME:
 			shader_overlay.visible = true
 			shader_overlay.material = once_per_game_shader
+		CardInstance.CardPermanence.SUPPORT:
+			shader_overlay.visible = true
+			shader_overlay.material = support_card_shader
 
 	
 

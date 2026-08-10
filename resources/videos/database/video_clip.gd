@@ -56,6 +56,34 @@ enum ParticipantTags {
 	ASIAN_WOMAN
 }
 
+enum ParticipantCategory {
+	WOMAN_APPEARANCE,
+	MAN_APPEARANCE,
+	MISC
+}
+
+const PARTICIPANT_TAG_CATEGORIES: Dictionary = {
+	ParticipantTags.BLONDE: ParticipantCategory.WOMAN_APPEARANCE,
+	ParticipantTags.REDHEAD: ParticipantCategory.WOMAN_APPEARANCE,
+	ParticipantTags.BRUNETTE: ParticipantCategory.WOMAN_APPEARANCE,
+	ParticipantTags.BLACK_HAIR: ParticipantCategory.WOMAN_APPEARANCE,
+	ParticipantTags.ASIAN_WOMAN: ParticipantCategory.WOMAN_APPEARANCE,
+	
+	ParticipantTags.BBC: ParticipantCategory.MAN_APPEARANCE,
+	ParticipantTags.WHITE_MAN: ParticipantCategory.MAN_APPEARANCE,
+	ParticipantTags.JAPANESE_MAN: ParticipantCategory.MAN_APPEARANCE,
+	
+	ParticipantTags.GLASSES: ParticipantCategory.MISC,
+	ParticipantTags.CUM_COVERED: ParticipantCategory.MISC,
+	ParticipantTags.CUCK_BOYFRIEND: ParticipantCategory.MISC,
+}
+
+static func get_category_for_tag(tag: VideoClip.ParticipantTags) -> ParticipantCategory:
+	if PARTICIPANT_TAG_CATEGORIES.has(tag):
+		return PARTICIPANT_TAG_CATEGORIES[tag]
+	push_warning("Participant tag %s has no category assigned, defaulting to MISC." % tag)
+	return ParticipantCategory.MISC
+
 const MODDABLE_PARTICIPANT_TAGS: Array[String] = [ ### These the only ones that can be assigned to characters
 	"BLONDE",
 	"REDHEAD",
@@ -109,7 +137,7 @@ static func _parse_action_tags(tag_names: Array, clip_file_name: String) -> Arra
 		if tag_name is not String:
 			push_warning("Non-string action tag found in clip '%s', skipping tag." % clip_file_name)
 			continue
-		var matched_key: String = _find_case_insensitive_enum_key(VideoClip.ActionTags.keys(), tag_name)
+		var matched_key: String = find_case_insensitive_enum_key(VideoClip.ActionTags.keys(), tag_name)
 		if matched_key != "":
 			parsed.append(VideoClip.ActionTags[matched_key])
 		else:
@@ -123,18 +151,12 @@ static func _parse_participant_tags(tag_names: Array, clip_file_name: String) ->
 		if tag_name is not String:
 			push_warning("Non-string participant tag found in clip '%s', skipping tag." % clip_file_name)
 			continue
-		var matched_key: String = _find_case_insensitive_enum_key(VideoClip.ParticipantTags.keys(), tag_name)
+		var matched_key: String = find_case_insensitive_enum_key(VideoClip.ParticipantTags.keys(), tag_name)
 		if matched_key != "":
 			parsed.append(VideoClip.ParticipantTags[matched_key])
 		else:
 			push_warning("Unknown participant tag '%s' in clip '%s', skipping tag." % [tag_name, clip_file_name])
 	return parsed
-
-static func _find_case_insensitive_enum_key(enum_keys: Array, tag_name: String) -> String:
-	for enum_key in enum_keys:
-		if enum_key.to_upper() == tag_name.to_upper():
-			return enum_key
-	return ""
 	
 
 static func _convert_participant_tags_to_string(tag_values: Array[VideoClip.ParticipantTags], _character_id: String) -> Array[String]:
@@ -172,7 +194,7 @@ static func _parse_moddable_participant_tags(tag_names: Array, character_id: Str
 		if tag_name is not String:
 			push_warning("Non-string participant tag found for '%s', skipping tag." % character_id)
 			continue
-		var matched_key: String = _find_case_insensitive_enum_key(VideoClip.ParticipantTags.keys(), tag_name)
+		var matched_key: String = find_case_insensitive_enum_key(VideoClip.ParticipantTags.keys(), tag_name)
 		if matched_key == "":
 			push_warning("Unknown participant tag '%s' for '%s', skipping tag." % [tag_name, character_id])
 			continue

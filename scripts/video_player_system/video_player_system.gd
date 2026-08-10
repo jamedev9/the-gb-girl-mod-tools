@@ -20,7 +20,7 @@ func _load_video_clips_into_database() -> VideoDatabase:
 func get_video_by_tags(
 	required_action_tags: Array[VideoClip.ActionTags] = [],
 	required_participant_tags: Array[VideoClip.ParticipantTags] = []) -> VideoClip:
-		
+	
 	return database.get_random_clip(required_action_tags,required_participant_tags)
 
 ### Claude-induced modding, added 19.07.26

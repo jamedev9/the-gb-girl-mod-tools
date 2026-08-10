@@ -1,5 +1,5 @@
-res://data/characters
-res://data/videos
+res://scenes
+res://mod_export_data/image_replacements
+res://scripts/auto_loads
 res://scripts/video_player_system
 res://scripts/meta_game_scripts
-res://scripts/auto_loads

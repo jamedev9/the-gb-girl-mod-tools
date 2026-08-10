@@ -117,15 +117,6 @@ func unlock_action_rewards_already_achieved() -> void:
 	for reward in not_previously_unlocked:
 		add_newly_unlocked_rewards([reward])
 		rewards_unlocked[reward] = 1
-	
-#func get_newly_unlocked_action_rewards() -> Array[String]:
-	#var newly_unlocked_action_rewards: Array[String] = []
-	#for action_id in owned_player_actions:
-		#var action_progression: ActionProgressionDefinition = AutoloadDatabase.get_action_progression_def(action_id)
-		#if not action_progression:
-			#continue
-		#newly_unlocked_action_rewards.append_array(action_progression.get_rewards_that_should_be_unlocked(self))
-	#return newly_unlocked_action_rewards
 
 func get_newly_unlocked_action_rewards() -> Array[String]:
 	var newly_unlocked_action_rewards: Array[String] = []
@@ -197,7 +188,6 @@ func get_owned_event_cards() -> Dictionary:
 
 func get_current_deck() -> Dictionary:
 	return current_build["event_cards_deck"]
-	#return event_cards_deck
 
 func get_current_deck_size() -> int:
 	var count: int = 0
@@ -645,6 +635,12 @@ func get_times_trigger_has_triggered(trigger_id_to_check: String) -> int:
 
 func reset_trigger_counter_for_id(trigger_id_to_check: String) -> void:
 	triggered_effects_tracking[trigger_id_to_check] = 0
+
+func get_children_birthed() -> int:
+	var pregnancy_tigger_string: String = "pregnancy_give_birth"
+	if pregnancy_tigger_string not in triggered_effects_tracking.keys():
+		return 0
+	return get_times_trigger_has_triggered(pregnancy_tigger_string)
 
 #endregion
 #region Methods for saving:
