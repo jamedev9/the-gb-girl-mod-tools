@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="CharacterDefinition" load_steps=2 format=3 uid="uid://c5h2xnyo5xank"]
 
-[ext_resource type="Script" uid="uid://cqixbqa3xiyh1" path="res://object_classes/run_defining_objects/character_definitions/character_definition.gd" id="1_2hafr"]
+[ext_resource type="Script" uid="uid://dk4c6hp7n45bs" path="res://object_classes/run_defining_objects/character_definitions/character_definition.gd" id="1_2hafr"]
 
 [resource]
 script = ExtResource("1_2hafr")
@@ -8,5 +8,5 @@ character_id = "carolina_sweets"
 character_name = "Carolina"
 character_class_name = "Aspiring Pornstar"
 character_age = 19
-portrait_image_path = "uid://v6sg2soeuh63"
+portrait_image_path = "uid://31f6kmmfhnmm"
 video_participant_tags = Array[int]([1])
