@@ -11,7 +11,6 @@ var _overrides: Dictionary = {} # "%s:%s" % [ReplacementType, type_instance] -> 
 var _texture_cache: Dictionary = {} # image_path -> Texture2D
 
 func _ready() -> void:
-	print("Readying ImageOverride")	
 	_load_all_mod_image_replacements()
 
 func _load_all_mod_image_replacements() -> void:
@@ -27,7 +26,7 @@ func _load_all_mod_image_replacements() -> void:
 	var mod_folder_name := mods_dir.get_next()
 	print("Mod folder name: %s"%mod_folder_name)
 	while mod_folder_name != "":
-		if mods_dir.current_is_dir() and not mod_folder_name.begins_with("."):
+		if mods_dir.current_is_dir() and not mod_folder_name.begins_with(".") and SettingsManager.is_mod_enabled_on_disk(mod_folder_name):
 			_load_image_replacements_for_mod(mod_folder_name)
 		mod_folder_name = mods_dir.get_next()
 	mods_dir.list_dir_end()

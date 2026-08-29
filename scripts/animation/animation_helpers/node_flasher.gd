@@ -20,11 +20,11 @@ static func alert_player_of_value_change(
 		
 static func _flash_nodes_red(nodes: Array[Control],significance_multiplier: float,pop_scale:float,flash_duration:float) -> void:
 	for node in nodes:
-		await _flash_node(node, Color.RED,significance_multiplier,pop_scale,flash_duration)
+		await _flash_node(node, SettingsManager.active_negative_color(),significance_multiplier,pop_scale,flash_duration)
 
 static func _flash_nodes_green(nodes: Array[Control],significance_multiplier: float,pop_scale:float,flash_duration:float) -> void:
 	for node in nodes:
-		await _flash_node(node, Color.GREEN,significance_multiplier,pop_scale,flash_duration)
+		await _flash_node(node, SettingsManager.active_positive_color(),significance_multiplier,pop_scale,flash_duration)
 
 	
 static func _flash_node(node: Control, flash_color: Color, significance_multiplier: float, pop_scale: float, duration: float) -> void:
@@ -129,7 +129,7 @@ static func alert_player_of_value_change_and_fade(
 	if delta == 0:
 		return
 
-	var color := Color.GREEN if delta < 0 else Color.RED
+	var color := SettingsManager.active_positive_color() if delta < 0 else SettingsManager.active_negative_color()
 
 	for node in nodes:
 		await _flash_and_fade_node(

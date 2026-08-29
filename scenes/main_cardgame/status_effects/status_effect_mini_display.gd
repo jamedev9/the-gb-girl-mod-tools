@@ -39,9 +39,9 @@ func _set_border_color(status_category: StatusEffectDefinition.StatusCategory) -
 func get_color_for_category(status_category:StatusEffectDefinition.StatusCategory) -> Color:
 	match status_category:
 		StatusEffectDefinition.StatusCategory.BUFF:
-			return Color.GREEN
+			return SettingsManager.active_positive_color()
 		StatusEffectDefinition.StatusCategory.DEBUFF:
-			return Color.RED
+			return SettingsManager.active_negative_color()
 	return Color.WHITE
 	
 func set_displayed_duration(given_duration: int) -> void:

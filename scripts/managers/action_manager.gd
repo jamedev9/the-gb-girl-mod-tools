@@ -10,6 +10,46 @@ const COPYRIGHT: String = "2026"
 func get_action_base_move_cost(action_id: String) -> int:
 	return AutoloadDatabase.player_actions_by_id[action_id].move_energy
 
+## Computes the CURRENT move-energy cost for an action, with all applicable status/
+## passive modifiers applied (e.g. the "Lubed" status reducing cost to a specific
+## opponent) - without any of the side effects of actually moving the action (no
+## verification, no resolution, no signals). Pass opponent_id to preview the cost of
+## targeting a specific opponent; leave empty to preview with only the player's own
+## modifiers applied. Safe to call every frame - only mutates a throwaway context.
+func get_current_move_cost(action_id: String, opponent_id: String = "") -> int:
+	var player_action: PlayerAction = AutoloadDatabase.get_player_action_by_id(action_id)
+	if not player_action:
+		return 0
+	var game_state: GameState = main_game.game_state
+	### A GameState always exists (main_cardgame.gd's _clear_game_state()), but
+	### game_state.player only gets its full field set (including "passive_effects")
+	### via GameState.add_player_stats(), called when a real encounter starts.
+	### _clear_encounter() (run on exiting an encounter) resets current_encounter to a
+	### fresh, non-null placeholder EncounterDefinition without calling
+	### add_player_stats() again, so current_encounter alone isn't a reliable signal -
+	### check the same way GameState.get_active_player_passives() does.
+	if not game_state or not game_state.current_encounter or "passive_effects" not in game_state.player.keys():
+		return player_action.move_energy
+
+	var intent_source: PlayerEntity = PlayerEntity.new(game_state)
+	var preview_context: EffectContext = EffectContext.new()
+	preview_context.game_state = game_state
+	preview_context.context_phase = EffectContext.ContextPhase.MODIFY
+	preview_context.moving_player_action = true
+	preview_context.player_action_id = action_id
+	preview_context.effect_origin = intent_source
+	preview_context.id_of_effect_origin = "player"
+	preview_context.source = intent_source
+	preview_context.energy_delta = player_action.move_energy
+	preview_context.energy_reason = EffectContext.EnergyReason.MOVED_PLAYER_ACTION
+	if opponent_id != "":
+		preview_context.target = OpponentEntity.new(game_state, opponent_id)
+
+	main_game.effect_context_manager._modify_intent_context_with_passive_and_status_effects(preview_context, false)
+	### Matches PlayerStatsManager._drain_player_energy_from_moving_action_ - never gain
+	### energy from moving actions, so cost can't preview as negative either.
+	return max(preview_context.energy_delta, 0)
+
 static func get_current_action_upkeep(game_state:GameState) -> int:
 	var upkeep_energy: int = 0
 	var active_action_ids: Array[String] = get_currently_active_actions(game_state)

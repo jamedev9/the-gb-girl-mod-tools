@@ -143,7 +143,7 @@ static func copy_resources_in_folder(folder_path) -> Array[Resource]:
 	return array_of_resources
 
 
-static func capitalize_each_sentence(text: String) -> String:
+static func capitalize_each_sentence(text: String) -> String: ### This is just doing .capitalize()
 	var out := ""
 	var capitalize_next := true
 	for i in range(text.length()):

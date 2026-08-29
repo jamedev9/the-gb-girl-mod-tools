@@ -12,6 +12,7 @@ class_name ActionCard
 #endregion
 
 @export var represented_action_id: String
+var represented_action: PlayerAction
 var action_is_disabled: bool = false
 
 #@export var status_mini_pic_scene: PackedScene = preload("res://scenes/main_cardgame/status_effects/status_effect_mini_display.tscn")
@@ -19,6 +20,12 @@ var action_is_disabled: bool = false
 
 var _original_position: Vector2
 var _drag_offset: Vector2  = Vector2(0,0)
+
+### True only on the floating duplicate created by set_drag_preview() in
+### _get_drag_data() - the duplicate is a live ActionCard with its own _process(),
+### distinguished from the real hand card so only the preview reflects a hovered
+### opponent's cost modifiers (e.g. the "Lubed" status) while dragging.
+var _is_drag_preview_clone: bool = false
 
 enum AnimationState {IN_HAND,DRAGGING,RESOLVING,FAILED_TO_RESOLVE}
 var animation_state: AnimationState = AnimationState.IN_HAND
@@ -31,8 +38,37 @@ signal drag_started(action_card: ActionCard)
 signal animation_state_changed(action_card: ActionCard)
 signal returned_to_hand
 
+#PLAYERACTION_ANAL_ACTION_NAME,
+func _refresh_text() -> void:
+	if not represented_action:
+		return
+	_set_action_name_text(represented_action)
+
+
 func _process(delta: float) -> void:
 	show_if_disabled_by_status(main_game.game_state)
+	_update_move_energy_display()
+
+### Polled every frame rather than event-driven - the number of live action cards is
+### small, and the cost depends on ambient state (player statuses/passives, and while
+### dragging, whichever opponent is currently hovered) that doesn't have a single
+### signal to hook.
+func _update_move_energy_display() -> void:
+	if represented_action_id == "":
+		return
+	var opponent_id: String = ""
+	if _is_drag_preview_clone:
+		var hovered_opponent: OpponentCard = OpponentCard.find_hovered_opponent_card(get_viewport())
+		if hovered_opponent:
+			opponent_id = hovered_opponent.get_opponent_id()
+	var base_cost: int = main_game.action_manager.get_action_base_move_cost(represented_action_id)
+	var current_cost: int = main_game.action_manager.get_current_move_cost(represented_action_id, opponent_id)
+	move_energy.text = str(current_cost)
+	move_energy.modulate = Color.WHITE
+	if current_cost < base_cost:
+		move_energy.modulate = SettingsManager.active_positive_color()
+	elif current_cost > base_cost:
+		move_energy.modulate = SettingsManager.active_negative_color()
 
 func update_class_specific_displays(game_state: GameState) -> void:
 	_make_unavailable_during_opponents_turn(game_state)
@@ -40,27 +76,28 @@ func update_class_specific_displays(game_state: GameState) -> void:
 	show_if_disabled_by_status(game_state)
 
 func show_if_disabled_by_status(game_state: GameState) -> void:
-	action_disabled_overlay.visible = false
-	action_is_disabled = false
-	self.mouse_filter = Control.MOUSE_FILTER_STOP
-	var player_statuses = game_state.get_player_statuses()
-	for active_status in player_statuses:
-		var status_def: StatusEffectDefinition = AutoloadDatabase.status_effects_by_id[active_status]
-		for component in status_def.status_effect_components:
-			if component is not Status_DisablePlayerActions:
-				continue 
-			if represented_action_id in component.disabled_action_ids:
-				self.mouse_filter = Control.MOUSE_FILTER_PASS
-				self.action_disabled_overlay.visible = true
-				action_is_disabled = true
-				return
+	### Single source of truth for "which actions are currently disabled" - matches
+	### GameState.get_disabled_player_actions(), which also covers allowed_action_ids
+	### -based components (e.g. "only vaginal is allowed") and passives, neither of
+	### which the old hand-rolled status-only check here accounted for.
+	action_is_disabled = represented_action_id in game_state.get_disabled_player_actions()
+	action_disabled_overlay.visible = action_is_disabled
+	self.mouse_filter = Control.MOUSE_FILTER_PASS if action_is_disabled else Control.MOUSE_FILTER_STOP
 
 func display_action(action_id:String) -> void:
+	### player_actions_by_id may still be loading in the background (see
+	### AutoloadDatabase._ready()) - retry once ready instead of silently no-op'ing
+	### below (represented_action would come back null).
+	if not AutoloadDatabase.is_content_loaded:
+		AutoloadDatabase.run_when_content_loaded(Callable(self,"display_action").bind(action_id))
+		return
 	self.represented_action_id = action_id
-	var represented_action: PlayerAction = AutoloadDatabase.get_player_action_by_id(action_id)
+	self.represented_action = AutoloadDatabase.get_player_action_by_id(action_id)
+	
 	if not represented_action:
 		return
-	action_type.text = represented_action.action_name
+	_set_action_name_text(represented_action)
+	#action_type.text = represented_action.action_name
 	move_energy.text = str(represented_action.move_energy)
 	energy_per_round.text = str(represented_action.energy_per_round)
 	move_damage.text = str(represented_action.base_damage)
@@ -78,6 +115,13 @@ func display_action(action_id:String) -> void:
 		picture = represented_action.picture
 		
 	action_picture.texture = picture
+
+func _set_action_name_text(given_action_type: PlayerAction) -> void:
+	action_type.text = given_action_type.get_action_name()
+
+	
+	
+	
 
 func register_card_in_entity_registry() -> void:
 	if not main_game:
@@ -126,6 +170,7 @@ func _get_drag_data(_at_position: Vector2) -> Variant:
 	preview_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	var preview_card := duplicate(Control.DUPLICATE_USE_INSTANTIATION)
+	(preview_card as ActionCard)._is_drag_preview_clone = true
 	preview_card.visible = true
 	preview_card.modulate = Color.WHITE
 	preview_card.scale = scale

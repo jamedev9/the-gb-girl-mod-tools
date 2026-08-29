@@ -9,10 +9,21 @@ class_name OpponentCard
 @export var active_player_action_pic: ActivePlayerActionPic
 @export var action_mini_display: OpponentActionMiniDisplay
 @export var container_for_status_displays: Container
-@export var player_action_video: VideoStreamPlayer
+@export var player_action_video: VideoPlayback
 @export var opponent_damage_label: RichTextLabel
 @export var simple_pleasure_bar: SimplePleasureBar
 @export var idle_picture: TextureRect
+
+## Walks up from the currently hovered control (if any) to find an OpponentCard
+## ancestor - shared by anything that needs to know which opponent, if any, is
+## under the cursor right now (e.g. while dragging an action card).
+static func find_hovered_opponent_card(viewport: Viewport) -> OpponentCard:
+	var node: Node = viewport.gui_get_hovered_control()
+	while is_instance_valid(node):
+		if node is OpponentCard:
+			return node
+		node = node.get_parent()
+	return null
 @export var video_panel_container: Container
 @export var background_color: ColorRect
 @export var opponent_action_mini_display: OpponentActionMiniDisplay
@@ -46,6 +57,18 @@ signal unhovered(opponent_card:  OpponentCard)
 const POP_SIGNIFICANCE: float = 1
 const POP_SCALE: float = 1.2
 const POP_DURATION: float = 0.5
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_TRANSLATION_CHANGED:
+		_refresh_text()
+	if what == NOTIFICATION_DRAG_END:
+		active_player_action_pic.modulate.a = 1.0
+
+func _refresh_text() -> void:
+	if not displayed_opponent_type:
+		return
+	_display_opponent_type_name(displayed_opponent_type)
+
 
 func _process(_delta: float) -> void:
 	if not _is_mouse_inside:
@@ -94,6 +117,13 @@ func _find_deepest_hoverable_node(node: Node, global_mouse: Vector2) -> Control:
 			return child
 	return null
 
+func get_opponent_id() -> String:
+	return opponent_id
+func get_opponent_instance() -> OpponentInstance:
+	return displayed_opponent_instance
+func get_opponent_type() -> OpponentType:
+	return displayed_opponent_type
+
 
 func update_class_specific_displays(game_state:GameState) -> void:
 	_clear_video_if_no_action_is_active(game_state)
@@ -111,8 +141,7 @@ func display_opponent(game_state: GameState,given_opponent_id: String) -> void:
 	_change_background_color(displayed_opponent_type)
 	_register_self_as_node_representing_opponent_id(given_opponent_id)
 	simple_pleasure_bar.initialize_values(displayed_opponent_type.max_damage)
-	#simple_pleasure_bar.set_current_pleasure(displayed_opponent_instance.current_damage)
-	#simple_pleasure_bar.animate_pleasure_bar_to_value(displayed_opponent_instance.current_damage,0)
+
 
 func _add_idle_picture_of_opponents_cock(given_opponent_type: OpponentType) -> void:
 	var idle_texture: Texture2D = given_opponent_type.get_cock_picture()
@@ -138,7 +167,8 @@ func update_opponent_display(game_state: GameState) -> void:
 		return
 		
 	_set_opponent_picture_from_type(opponent_instance.opponent_type)
-	opponent_type.text = opponent_instance.opponent_type.opponent_type_name
+	_display_opponent_type_name(opponent_instance.opponent_type)
+	#opponent_type.text = opponent_instance.opponent_type.opponent_type_name
 	_handle_player_action_card(game_state)
 	#_handle_upcoming_opponent_action(game_state,self.opponent_id)
 	_handle_passive_effects(displayed_opponent_type)
@@ -147,7 +177,11 @@ func update_opponent_display(game_state: GameState) -> void:
 func _show_opponent_type_info(given_opponent_type: OpponentType) -> void:
 	_set_opponent_picture_from_type(given_opponent_type)
 	opponent_name.text = displayed_opponent_instance.opponent_name
-	opponent_type.text = given_opponent_type.opponent_type_name
+	_display_opponent_type_name(given_opponent_type)
+
+func _display_opponent_type_name(given_opponent_type: OpponentType) -> void:
+	opponent_type.text = given_opponent_type.get_opponent_type_name()
+	#opponent_type.text = given_opponent_type.opponent_type_name
 
 func _set_opponent_picture_from_type(given_opponent_type: OpponentType) -> void:
 	var picture: Texture2D
@@ -190,24 +224,25 @@ func _pop_video_player() -> void:
 
 func _show_matching_video(action: PlayerAction) -> void:
 	if not main_game.settings_manager.get_videos_on_opponents_setting():
-		self.player_action_video.visible = false
+		_hide_and_stop_video()
 		_expand_static_action_image(action)
 		return
 	if action == null:
-		self.player_action_video.visible = false
+		_hide_and_stop_video()
 		return
 	if action.video_action_tags.is_empty():
-		self.player_action_video.visible = false
+		_hide_and_stop_video()
 		return
 	var participant_type_tags: Array[VideoClip.ParticipantTags] = displayed_opponent_type.video_particpant_tags.duplicate(true)
 	participant_type_tags.append_array(get_save_game_state().get_player_video_participant_tags())
 	var clip: VideoClip = VideoPlayerSystem.get_video_by_tags(action.video_action_tags, participant_type_tags)
 	if not clip:
-		self.player_action_video.visible = false
+		_hide_and_stop_video()
 		return
 	self.player_action_video.visible = true
-	self.player_action_video.stream = clip.video_file
-	self.player_action_video.play()
+	self.player_action_video.set_video_path(clip.video_file) ### auto-plays: enable_auto_play=true in the scene
+	CombatProfiler.note_video_started(opponent_id)
+	CombatProfiler.log_event("VIDEO", "opponent %s started video for action %s" % [opponent_id, action.action_id])
 	_shrink_static_action_image()
 
 func _expand_static_action_image(action: PlayerAction) -> void:
@@ -228,30 +263,6 @@ func _shrink_static_action_image() -> void:
 	active_player_action_pic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	active_player_action_pic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 
-#func _show_matching_video(action: PlayerAction) -> void:
-	#if not main_game.settings_manager.get_videos_on_opponents_setting():
-		#self.player_action_video.visible = false
-		#_expand_static_action_image()
-		#return
-	#if action == null:
-		#self.player_action_video.visible = false
-		#return
-	#if action.video_action_tags.is_empty():
-		#self.player_action_video.visible = false
-		#return
-	#var participant_type_tags: Array[VideoClip.ParticipantTags] = displayed_opponent_type.video_particpant_tags.duplicate(true)
-	#participant_type_tags.append_array(get_save_game_state().get_player_video_participant_tags())
-	#var clip: VideoClip = VideoPlayerSystem.get_video_by_tags(action.video_action_tags, participant_type_tags)
-	#if not clip:
-		#self.player_action_video.visible = false
-		#return
-	#self.player_action_video.visible = true
-	#self.player_action_video.stream = clip.video_file
-	#self.player_action_video.play()
-#
-#func _expand_static_action_image() -> void:
-	#
-	#pass
 
 #endregion
 
@@ -289,23 +300,35 @@ func update_displayed_values_when_taking_damage(current_pleasure: int) -> void: 
 
 #region Check for status effects
 func _handle_passive_effects(given_opponent_type: OpponentType) -> void:
+	var timer_id: String = "passive_rebuild_%s" % opponent_id
+	CombatProfiler.begin_timer(timer_id)
+	var freed_count: int = 0
 	for child in container_for_status_displays.get_children():
 		if child is PassiveEffectMiniDisplay:
 			child.queue_free()
+			freed_count += 1
 	for passive_id in given_opponent_type.passive_effects:
 		var passive: PassiveEffectDefinition = AutoloadDatabase.passive_effect_definitions[passive_id]
 		var new_mini_display: PassiveEffectMiniDisplay = passive_effect_mini_display.instantiate()
 		new_mini_display.display_passive(passive)
 		container_for_status_displays.add_child(new_mini_display)
+	CombatProfiler.end_timer(timer_id, "UI_REBUILD",
+		"freed=%d instantiated=%d" % [freed_count, given_opponent_type.passive_effects.size()])
 
 func _handle_active_status_effects(game_state: GameState, _opponent_id: String) -> void:
+	var timer_id: String = "status_rebuild_%s" % opponent_id
+	CombatProfiler.begin_timer(timer_id)
+	var freed_count: int = 0
 	for child in container_for_status_displays.get_children():
 		if child is StatusEffectMiniDisplay:
 			child.queue_free()
+			freed_count += 1
 	var active_statuses: Dictionary = game_state.get_opponent_instance(_opponent_id).status_effects
 	for status_id in active_statuses.keys():
 		var _status_display = add_new_status_display(status_id) # Child added inside "add_new_status_display"
 		# This is to let animation call "add_new_status_display" and get the display for animations.
+	CombatProfiler.end_timer(timer_id, "UI_REBUILD",
+		"freed=%d instantiated=%d" % [freed_count, active_statuses.size()])
 
 func add_new_status_display(status_id: String) -> StatusEffectMiniDisplay:
 		var status_display: StatusEffectMiniDisplay = status_mini_display_scene.instantiate()
@@ -334,6 +357,8 @@ func get_display_for_status(status_id: String) -> StatusEffectMiniDisplay:
 			if status_display.represented_status_effect.status_id == status_id:
 				return status_display
 	return null
+
+
 
 #endregion 
 
@@ -387,9 +412,6 @@ func _get_drag_data(_at_position: Vector2) -> Variant:
 	
 	return action_card
 
-func _notification(what: int) -> void:
-	if what == NOTIFICATION_DRAG_END:
-		active_player_action_pic.modulate.a = 1.0
 
 func _opponent_has_action() -> bool:
 	return main_game.game_state.get_action_assigned_to_opponent(opponent_id) != ""
@@ -397,9 +419,20 @@ func _opponent_has_action() -> bool:
 
 func _clear_video_if_no_action_is_active(game_state: GameState) -> void:
 	if ActionManager.get_action_assigned_to_opponent(game_state,self.opponent_id) == "":
-		player_action_video.visible = false
+		_hide_and_stop_video()
 	else:
 		player_action_video.visible = true
+
+## Hides the video AND actually stops decoding it. VideoPlayback's _process() only keeps
+## decoding while is_playing is true, so pause() genuinely halts the work (unlike Godot's
+## built-in VideoStreamPlayer, which kept decoding in the background regardless of
+## visibility - see git history for that bug and the CombatProfiler work that caught it).
+func _hide_and_stop_video() -> void:
+	if player_action_video.is_playing:
+		CombatProfiler.note_video_still_playing_while_hidden(opponent_id)
+	player_action_video.visible = false
+	player_action_video.pause()
+	CombatProfiler.note_video_stopped(opponent_id)
 
 func get_action_card_movement_location() -> Vector2: # global position
 	return player_action_video.global_position

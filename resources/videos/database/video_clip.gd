@@ -38,6 +38,7 @@ enum ActionTags {
 	RIMJOB,
 	FEMALE_TWO_GIRLS_VAGINAL,
 	FEMALE_TWO_GIRLS_SPITROAST,
+	GARGLE_CUM
 	
 	
 }
@@ -92,7 +93,12 @@ const MODDABLE_PARTICIPANT_TAGS: Array[String] = [ ### These the only ones that 
 	"ASIAN_WOMAN"
 ]
 
-@export var video_file: VideoStreamTheora
+### Formats GDE GoZen (the video player as of the video_playback_optimization branch) can
+### actually load - checked what's compiled into the library directly, not guessed. Keep
+### this filter string in sync with GlobalVideoPlayerSystem.SUPPORTED_MOD_VIDEO_EXTENSIONS
+### (video_player_system.gd) - @export_file's filter has to be a compile-time constant
+### string, so it can't be derived from that array automatically.
+@export_file("*.ogv", "*.mp4", "*.m4v", "*.mov", "*.mkv", "*.webm", "*.avi") var video_file: String = "" ## Path to the video file. Played via the GDE GoZen video addon's playback node (see opponent_card.gd), which takes a raw path rather than a VideoStream resource.
 @export var action_tags: Array[ActionTags]
 @export var participant_tags: Array[ParticipantTags]
 @export var weight: float = 1
@@ -105,7 +111,7 @@ func get_file_reference_fields() -> Dictionary:
 
 func to_json_dict() -> Dictionary:
 	return {
-		"video_file": video_file.resource_path if video_file else "",
+		"video_file": video_file,
 		"action_tags": VideoClip._convert_action_tags_to_string(action_tags),
 		"participant_tags": VideoClip._convert_participant_tags_to_string(participant_tags, resource_path),
 		"weight": weight,
@@ -115,9 +121,7 @@ static func from_json_dict(data: Dictionary, mod_folder_path: String = "") -> Vi
 	var clip := VideoClip.new()
 	var video_file_name: String = data.get("video_file", "")
 	if video_file_name != "" and mod_folder_path != "":
-		var video_stream := VideoStreamTheora.new()
-		video_stream.file = mod_folder_path.path_join(video_file_name)
-		clip.video_file = video_stream
+		clip.video_file = mod_folder_path.path_join(video_file_name)
 	clip.action_tags = VideoClip._parse_action_tags(data.get("action_tags", []), clip.resource_path)
 	clip.participant_tags = VideoClip._parse_moddable_participant_tags(data.get("participant_tags", []), "video_clip")
 	clip.weight = float(data.get("weight", 1.0))

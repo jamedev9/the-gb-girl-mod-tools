@@ -99,12 +99,14 @@ static func _apply_filter_rule(
 			valid.append(latest_opponent_spawned.opponent_id)
 			#print("Targeting most recent opponent. Opponent id: %s"%latest_opponent_spawned.opponent_id)
 		TargetsHaveOneOfSeveralActionsAssigned:
+			#print("Checking rule: TargetsHaveOneOfSeveralActionsAssigned")
 			var active_actions: Array[String] = ActionManager.get_currently_active_actions(game_state)
 			for action_id in rule.action_ids:
 				if action_id in active_actions:
 					var opponent_id: String = game_state.get_opponent_with_action(action_id)
 					#print("Checking opponent: %s"%opponent_id)
 					if opponent_id in opponent_ids and opponent_id not in valid:
+						#print("Opponent has the action, adding to valid target.")
 						valid.append(opponent_id)
 		TargetMustBeDifferentOpponentType:
 			if source is PlayerEntity:
@@ -147,20 +149,7 @@ static func _apply_filter_rule(
 			for opponent_id in opponent_ids:
 				if opponent_id not in invalid_opponents:
 					valid.append(opponent_id)
-					
-		#TargetCannotHaveTheseActionsAssigned:
-			#var all_opponents = game_state.get_currently_active_opponents().keys()
-			#var invalid_opponents: Array = []
-			#var active_actions: Array[String] = ActionManager.get_currently_active_actions(game_state)
-			#for action_id in rule.action_ids:
-				#if action_id in active_actions:
-					#var opponent_id: String = game_state.get_opponent_with_action(action_id)
-					##print("Checking opponent: %s"%opponent_id)
-					#if opponent_id in opponent_ids and opponent_id not in valid:
-						#invalid_opponents.append(opponent_id)
-			#for opponent_id in all_opponents.keys():
-				#if opponent_id not in invalid_opponents:
-					#valid.append(opponent_id)
+				
 		
 		_:
 			return opponent_ids

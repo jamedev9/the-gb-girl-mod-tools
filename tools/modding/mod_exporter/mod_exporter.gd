@@ -58,9 +58,12 @@ func export_mod(output_mode: String) -> void:
 			push_error("Unknown output_mode: %s" % output_mode)
 			return
 
-	_write_mod_info(mod_root, mod_config)
+	var content_summary: Dictionary = {}
 	for config in export_configs:
-		_export_all_of_type(config, mod_root)
+		var exported_count: int = _export_all_of_type(config, mod_root)
+		content_summary[config.resource_script.get_global_name()] = exported_count
+
+	_write_mod_info(mod_root, mod_config, content_summary)
 	print("Exported '%s' to: %s" % [mod_config["mod_name"], ProjectSettings.globalize_path(mod_root)])
 
 func _get_game_mods_folder() -> String:
@@ -70,16 +73,19 @@ func _get_game_mods_folder() -> String:
 	var godot_app_data_root: String = base_appdata if OS.get_name() == "Windows" else base_appdata.path_join(".local/share/godot")
 	return godot_app_data_root.path_join("app_userdata").path_join(GAME_APP_USER_DATA_FOLDER_NAME).path_join("mods")
 
-func _export_all_of_type(config: ExportConfig, mod_root: String) -> void:
+func _export_all_of_type(config: ExportConfig, mod_root: String) -> int:
 	var tres_paths: Array[String] = []
 	_collect_tres_paths_recursive(config.search_path, tres_paths)
 
+	var exported_count: int = 0
 	for tres_path in tres_paths:
 		var resource: Resource = load(tres_path)
 		if resource is ModExportable:
-			_export_single_resource(resource, mod_root)
+			if _export_single_resource(resource, mod_root):
+				exported_count += 1
 		else:
 			push_warning("Skipped non-ModExportable resource: %s" % tres_path)
+	return exported_count
 
 func _collect_tres_paths_recursive(folder_path: String, out_paths: Array[String]) -> void:
 	var dir := DirAccess.open(folder_path)
@@ -101,12 +107,12 @@ func _collect_tres_paths_recursive(folder_path: String, out_paths: Array[String]
 		item_name = dir.get_next()
 	dir.list_dir_end()
 
-func _export_single_resource(resource: ModExportable, mod_root: String) -> void:
+func _export_single_resource(resource: ModExportable, mod_root: String) -> bool:
 	if resource.has_method("validate"):
 		var errors: Array[String] = []
 		if not resource.validate(errors):
 			push_warning("Validation failed, skipping export: %s" % errors)
-			return
+			return false
 
 	var json_dict: Dictionary = resource.to_json_dict()
 
@@ -134,6 +140,7 @@ func _export_single_resource(resource: ModExportable, mod_root: String) -> void:
 	var output_path: String = mod_root.path_join(output_subfolder).path_join(resource.resource_path.get_file().get_basename() + ".json")
 	_ensure_folder_exists(mod_root.path_join(output_subfolder))
 	_write_json_file(output_path, json_dict)
+	return true
 
 #func _copy_file_into_mod(source_path: String, mod_root: String, subfolder: String) -> String:
 	#var file_name: String = source_path.get_file()
@@ -164,11 +171,12 @@ func _write_json_file(path: String, data: Dictionary) -> void:
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	file.store_string(JSON.stringify(data, "\t"))
 
-func _write_mod_info(mod_root: String, mod_config: Dictionary) -> void:
+func _write_mod_info(mod_root: String, mod_config: Dictionary, content_summary: Dictionary) -> void:
 	_ensure_folder_exists(mod_root)
 	_write_json_file(mod_root.path_join("mod_info.json"), {
 		"mod_name": mod_config["mod_name"],
 		"author": mod_config["author"],
 		"mod_version": mod_config["mod_version"],
 		"schema_version": 1,
+		"content": content_summary,
 	})

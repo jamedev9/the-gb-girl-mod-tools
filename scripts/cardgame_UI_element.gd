@@ -40,7 +40,15 @@ func _ready() -> void:
 	connect("tooltip_requested",Callable(main_game.popup_controller,"_handle_tooltip_request"))
 	connect("tooltip_cleared",Callable(main_game.popup_controller,"_handle_clear_tooltip_request"))
 	main_game.connect("finished_playing_fragment_animations",Callable(self,"_on_fragment_animations_finished"))
-	
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_TRANSLATION_CHANGED:
+		_refresh_text()
+
+func _refresh_text() -> void:
+	### For localization
+	pass
+
 func _on_fragment_animations_finished() -> void:
 	#Overwrite in child classes 
 	pass

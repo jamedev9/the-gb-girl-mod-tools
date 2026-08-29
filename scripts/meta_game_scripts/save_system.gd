@@ -24,32 +24,33 @@ func save_exists(slot: int) -> bool:
 
 func load_save(slot: int) -> SaveGameState:
 	var path: String = _get_save_path(slot)
-	
+
 	if not FileAccess.file_exists(path):
 		push_warning("Save file at slot %s does not exist, making a new save." % slot)
 		return _create_new_save()
-	
+
 	var file = FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		push_error("Failed to open save at path %s" % path)
 		return _create_new_save()
-	
+
 	var json_text: String = FileAccess.get_file_as_string(path)
 	file.close()
-	
+
 	var json = JSON.new()
 	var parse_result = json.parse(json_text)
 	if parse_result != OK:
 		push_error("Failed to parse saved JSON. Returning new save.")
 		return _create_new_save()
-	
+
 	var data: Dictionary = json.data
 	var save_version: String = data.get("game_version", "0.0.0")
-	
+
 	if save_version != get_current_game_version():
 		_backup_save(slot, save_version)
-	
-	return _build_save_from_dict(data)
+
+	var result: SaveGameState = _build_save_from_dict(data)
+	return result
 
 func _backup_save(slot: int, old_version: String) -> void:
 	var original_path: String = _get_save_path(slot)

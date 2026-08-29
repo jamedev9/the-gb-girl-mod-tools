@@ -17,19 +17,24 @@ func get_control_node(entity_id: String) -> Node:
 		return entity_to_control_node.get(entity_id)
 	return null
 
+func register_dict_of_entities(dict: Dictionary[String,Node]) -> void:
+	for key in dict.keys():
+		register_entity(key,dict[key])
+	
+
 func reset_registry() -> void:
 	entity_to_control_node.clear()
-	register_entity("main_game",main_game)
-	register_entity("cardgame_ui",main_game.card_game_controler)
-	register_entity("player",main_game.player_stat_display)
-	register_entity("discard_pile",main_game.discard_pile)
-	register_entity("draw_pile",main_game.draw_pile)
-	register_entity("event_card_hand",main_game.floating_player_event_cards)
-	register_entity("action_card_hand",main_game.floating_player_action_cards)
-	register_entity("new_turn_phase_splash",main_game.new_turn_phase_splash)
-	register_entity("popup_controller",main_game.popup_controller)
-	register_entity("sound_manager",main_game.sound_manager)
-	register_entity("player_status_effects_display",main_game.player_status_effects_display)
-	register_entity("opponents_container",main_game.opponents_container)
-	register_entity("remaining_opponents_counter",main_game.remaining_opponents_counter)
-	register_entity("end_turn_button",main_game.end_turn_button)
+	#register_entity("main_game",main_game)
+	#register_entity("cardgame_ui",main_game.card_game_controler)
+	#register_entity("player",main_game.player_stat_display)
+	#register_entity("discard_pile",main_game.discard_pile)
+	#register_entity("draw_pile",main_game.draw_pile)
+	#register_entity("event_card_hand",main_game.floating_player_event_cards)
+	#register_entity("action_card_hand",main_game.floating_player_action_cards)
+	#register_entity("new_turn_phase_splash",main_game.new_turn_phase_splash)
+	#register_entity("popup_controller",main_game.popup_controller)
+	#register_entity("sound_manager",main_game.sound_manager)
+	#register_entity("player_status_effects_display",main_game.player_status_effects_display)
+	#register_entity("opponents_container",main_game.opponents_container)
+	#register_entity("remaining_opponents_counter",main_game.remaining_opponents_counter)
+	#register_entity("end_turn_button",main_game.end_turn_button)
