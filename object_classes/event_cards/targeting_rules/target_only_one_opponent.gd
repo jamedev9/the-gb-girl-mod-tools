@@ -1,2 +1,0 @@
-extends TargetingRule
-class_name OnlyOneOpponent

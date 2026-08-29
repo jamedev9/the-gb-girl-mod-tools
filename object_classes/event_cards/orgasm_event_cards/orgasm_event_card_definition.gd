@@ -1,2 +1,0 @@
-extends RewardEventCardDefinition
-class_name OrgasmEventCardDefinition

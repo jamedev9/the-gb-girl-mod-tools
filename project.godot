@@ -20,3 +20,8 @@ AutoloadDatabase="*res://scripts/auto_loads/autoload_database.gd"
 SaveSystem="*res://scripts/meta_game_scripts/save_system.gd"
 VideoPlayerSystem="*res://scripts/video_player_system/video_player_system.gd"
 ImageOverrideManager="*res://scripts/auto_loads/image_override_manager.gd"
+CombatProfiler="*res://scripts/debug/combat_profiler.gd"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/gde_gozen/plugin.cfg")
