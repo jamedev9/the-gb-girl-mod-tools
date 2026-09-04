@@ -1,4 +1,5 @@
-extends Resource
+@tool
+extends ModExportable
 class_name EffectDefinition
 
 func get_effect_id() -> String:

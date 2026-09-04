@@ -1,4 +1,5 @@
-extends Resource
+@tool
+extends ModExportable
 class_name EventCardDefinition
 
 @export var card_type_id: String
@@ -197,3 +198,63 @@ func get_opponents_with_one_of_required_actions(game_state: GameState) -> Array[
 
 func get_effect_intents() -> Array[EffectAndTargetIntent]:
 	return effect_intents
+
+func get_mod_export_subfolder() -> String:
+	return "event_cards"
+
+func get_file_reference_fields() -> Dictionary:
+	return {"card_picture": "images"}
+
+func to_json_dict() -> Dictionary:
+	var intent_dicts: Array = []
+	for intent in effect_intents:
+		intent_dicts.append(intent.to_json_dict())
+
+	var script: Script = get_script()
+	return {
+		"card_class": script.get_global_name() if script else "EventCardDefinition",
+		"card_type_id": card_type_id,
+		"card_name": card_name,
+		"description": description,
+		"card_picture": ModExportable.resolve_to_res_path(card_picture.resource_path) if card_picture else "",
+		"category": CardCategory.keys()[category],
+		"once_per_game": once_per_game,
+		"always_in_opening_hand": always_in_opening_hand,
+		"energy_cost": energy_cost,
+		"effect_intents": intent_dicts,
+	}
+
+## Reconstructs the correct subclass (EventCardDefinition, RewardEventCardDefinition, or
+## OrgasmEventCardDefinition) based on the "card_class" tag written by to_json_dict(), so
+## modded orgasm/reward cards round-trip with their special styling/behavior intact.
+static func from_json_dict(data: Dictionary, mod_folder_path: String = "") -> EventCardDefinition:
+	var card_def: EventCardDefinition
+	match data.get("card_class", "EventCardDefinition"):
+		"OrgasmEventCardDefinition":
+			card_def = OrgasmEventCardDefinition.new()
+		"RewardEventCardDefinition":
+			card_def = RewardEventCardDefinition.new()
+		_:
+			card_def = EventCardDefinition.new()
+	card_def.card_type_id = data.get("card_type_id", "")
+	card_def.card_name = data.get("card_name", "")
+	card_def.description = data.get("description", "")
+	card_def.once_per_game = data.get("once_per_game", false)
+	card_def.always_in_opening_hand = data.get("always_in_opening_hand", false)
+	card_def.energy_cost = int(data.get("energy_cost", 0))
+
+	var category_name: String = data.get("category", "")
+	var matched_category_key: String = ModExportable.find_case_insensitive_enum_key(CardCategory.keys(), category_name)
+	if matched_category_key != "":
+		card_def.category = CardCategory[matched_category_key]
+
+	var picture_file_name: String = data.get("card_picture", "")
+	if picture_file_name != "" and mod_folder_path != "":
+		card_def.card_picture = ModExportable.load_texture_from_mod(mod_folder_path.path_join(picture_file_name))
+
+	for intent_data in data.get("effect_intents", []):
+		var intent: EffectAndTargetIntent = EffectAndTargetIntent.from_json_dict(intent_data)
+		if intent:
+			card_def.effect_intents.append(intent)
+
+	return card_def

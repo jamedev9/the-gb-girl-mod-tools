@@ -19,6 +19,8 @@ var export_configs: Array[ExportConfig] = [
 	ExportConfig.new("res://mod_export_data/characters/", CharacterDefinition),
 	ExportConfig.new("res://mod_export_data/videos/", VideoClip),
 	ExportConfig.new("res://mod_export_data/image_replacements/", ImageReplacementSet),
+	ExportConfig.new("res://mod_export_data/passives/", PassiveEffectDefinition),
+	ExportConfig.new("res://mod_export_data/event_cards/", EventCardDefinition),
 ]
 
 func _run() -> void:

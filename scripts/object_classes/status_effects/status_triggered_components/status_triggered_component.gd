@@ -1,3 +1,4 @@
+@tool
 extends Resource
 class_name StatusTriggeredComponent
 
@@ -33,3 +34,31 @@ func should_component_trigger(
 
 func return_trigger_context(_intent_context: EffectContext, source: TargetEntity = null) -> TriggeredEffectContext:
 	return null
+
+func to_json_dict() -> Dictionary:
+	var condition_dicts: Array = []
+	for condition in trigger_conditions:
+		condition_dicts.append(condition.to_json_dict())
+	var intent_dicts: Array = []
+	for intent in effect_intents:
+		intent_dicts.append(intent.to_json_dict())
+	return {
+		"trigger_component_id": trigger_component_id,
+		"only_require_one_condition": only_require_one_condition,
+		"trigger_conditions": condition_dicts,
+		"effect_intents": intent_dicts,
+	}
+
+static func from_json_dict(data: Dictionary) -> StatusTriggeredComponent:
+	var component := StatusTriggeredComponent.new()
+	component.trigger_component_id = data.get("trigger_component_id", "")
+	component.only_require_one_condition = data.get("only_require_one_condition", false)
+	for condition_data in data.get("trigger_conditions", []):
+		var condition: TriggerCondition = TriggerCondition.from_json_dict(condition_data)
+		if condition:
+			component.trigger_conditions.append(condition)
+	for intent_data in data.get("effect_intents", []):
+		var intent: EffectAndTargetIntent = EffectAndTargetIntent.from_json_dict(intent_data)
+		if intent:
+			component.effect_intents.append(intent)
+	return component

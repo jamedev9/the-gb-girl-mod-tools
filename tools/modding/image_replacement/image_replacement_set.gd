@@ -17,6 +17,9 @@ func get_array_file_reference_fields() -> Dictionary:
 func to_json_dict() -> Dictionary:
 	var replacement_dicts: Array = []
 	for replacement in replacements:
+		if replacement == null:
+			push_warning("Skipping empty ImageReplacement entry")
+			continue
 		if replacement.target_id == "":
 			push_warning("Skipping ImageReplacement with empty target_id")
 			continue
@@ -24,5 +27,6 @@ func to_json_dict() -> Dictionary:
 			"replacement_type": ImageReplacement.ReplacementType.keys()[replacement.replacement_type],
 			"target_id": replacement.target_id,
 			"image_path": ModExportable.resolve_to_res_path(replacement.image_path),
+			"character_id": replacement.character_id,
 		})
 	return {"replacements": replacement_dicts}

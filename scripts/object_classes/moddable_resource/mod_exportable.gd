@@ -32,3 +32,13 @@ static func find_case_insensitive_enum_key(enum_keys: Array, tag_name: String) -
 		if enum_key.to_upper() == tag_name.to_upper():
 			return enum_key
 	return ""
+
+## Loads a loose image file (from a mod folder, outside res://) into a runtime Texture2D.
+static func load_texture_from_mod(path: String) -> Texture2D:
+	if path == "" or not FileAccess.file_exists(path):
+		return null
+	var image := Image.load_from_file(path)
+	if not image:
+		push_warning("Failed to load mod texture at '%s'" % path)
+		return null
+	return ImageTexture.create_from_image(image)
