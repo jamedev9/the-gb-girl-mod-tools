@@ -68,6 +68,29 @@ func to_json_dict() -> Dictionary:
 		"triggered_components": triggered_component_dicts,
 	}
 
+## Finds the first DealDamageBasedOnCardPlayCount anywhere in this passive's triggered/ticking
+## components and returns its live combo progress for the given game state, e.g. {"current": 3, "max": 5}.
+## Returns {} if this passive has no card-play-count combo effect to show a counter for.
+func get_combo_progress(game_state: GameState) -> Dictionary:
+	var combo_effect: DealDamageBasedOnCardPlayCount = _find_combo_effect()
+	if not combo_effect:
+		return {}
+	var current: int = DealDamageBasedOnCardPlayCount.get_current_count(game_state, combo_effect.card_ids)
+	if combo_effect.cycle_length > 0:
+		current = ((current - 1) % combo_effect.cycle_length) + 1
+	return {"current": current, "max": combo_effect.cycle_length}
+
+func _find_combo_effect() -> DealDamageBasedOnCardPlayCount:
+	for component in triggered_components:
+		for intent in component.effect_intents:
+			if intent.effect_intent is DealDamageBasedOnCardPlayCount:
+				return intent.effect_intent
+	for component in ticking_effect_components:
+		for intent in component.effect_intents:
+			if intent.effect_intent is DealDamageBasedOnCardPlayCount:
+				return intent.effect_intent
+	return null
+
 static func from_json_dict(data: Dictionary, mod_folder_path: String = "") -> PassiveEffectDefinition:
 	var passive_def := PassiveEffectDefinition.new()
 	passive_def.passive_id = data.get("passive_id", "")

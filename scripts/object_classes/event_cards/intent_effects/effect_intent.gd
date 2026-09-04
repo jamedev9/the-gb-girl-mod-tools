@@ -11,6 +11,20 @@ static func from_json_dict(data: Dictionary) -> EffectIntent:
 	match data.get("type", ""):
 		"DealDamageEffect":
 			return DealDamageEffect.from_json_dict(data)
+		"HealForValueEffect":
+			return HealForValueEffect.from_json_dict(data)
+		"ApplyEnergyDelta":
+			return ApplyEnergyDelta.from_json_dict(data)
+		"DrainPlayerEnergy":
+			return DrainPlayerEnergy.from_json_dict(data)
+		"Intent_GivePassivesToPlayer":
+			return Intent_GivePassivesToPlayer.from_json_dict(data)
+		"Intent_RemovePassiveFromPlayer":
+			return Intent_RemovePassiveFromPlayer.from_json_dict(data)
+		"Intent_TriggerNOrgasmsAndResetPleasure":
+			return Intent_TriggerNOrgasmsAndResetPleasure.from_json_dict(data)
+		"DealDamageBasedOnCardPlayCount":
+			return DealDamageBasedOnCardPlayCount.from_json_dict(data)
 		"CardFlowEffect":
 			return CardFlowEffect.from_json_dict(data)
 		"ApplyStatusEffect":

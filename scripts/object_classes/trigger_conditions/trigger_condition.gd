@@ -7,11 +7,24 @@ class_name TriggerCondition
 func to_json_dict() -> Dictionary:
 	return {"type": "TriggerCondition", "trigger_condition_id": trigger_condition_id}
 
-### No concrete TriggerCondition subclasses exist yet - this dispatch is here so any
-### subclass added later only needs a case added here, matching the pattern used by
-### EffectIntent/TargetingRule/StatusModifierComponent.
 static func from_json_dict(data: Dictionary) -> TriggerCondition:
 	match data.get("type", ""):
+		"TriggerCondition_OnPlayerOrgasm":
+			return TriggerCondition_OnPlayerOrgasm.from_json_dict(data)
+		"TriggerCondition_OnOpponentEnters":
+			return TriggerCondition_OnOpponentEnters.from_json_dict(data)
+		"TriggerCondition_OnlyOnPlayersTurn":
+			return TriggerCondition_OnlyOnPlayersTurn.from_json_dict(data)
+		"TriggerCondition_OnEventCardPlayed":
+			return TriggerCondition_OnEventCardPlayed.from_json_dict(data)
+		"TriggerCondition_RandomChance":
+			return TriggerCondition_RandomChance.from_json_dict(data)
+		"TriggerCondition_OnPlayerActionsStarted":
+			return TriggerCondition_OnPlayerActionsStarted.from_json_dict(data)
+		"TriggerCondition_OnEventCardPlayedEveryNTimes":
+			return TriggerCondition_OnEventCardPlayedEveryNTimes.from_json_dict(data)
+		"TriggerCondition_OnPlayerActionsTriggered":
+			return TriggerCondition_OnPlayerActionsTriggered.from_json_dict(data)
 		_:
 			push_warning("Unsupported/unknown trigger_condition type in mod data: %s" % data.get("type", ""))
 			return null
