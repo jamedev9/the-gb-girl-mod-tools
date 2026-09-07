@@ -18,8 +18,15 @@ Move your video files to mod_export_data/videos. In the same folder, for each cl
 ## Custom character definitions
 In mod_export_data/characters, create a new CharacterDefinition resource. You can place a custom portrait in mod_export_data/images, then link the path of the image in the CharacterDefinition resource.
 
+## Passive Effects
+New passives can be created. The unique ID you assign to the ID can be added to your custom character definitions.
+
+## Event Cards
+Event cards can be made to add new Combo Cards or to add as starting cards for custom characters.
+
 ## Image overrides
 In mod_export_data/image_replacements, create a new ImageReplacementSet resource. Inside this resource, add multiple ImageReplacement resources. Each ImageReplacement needs a ReplacementType, an ID for the replacement target, and a path to the image inside mod_export_data/images.
+Image sets can be set to only work for a single character ID.
 Replacement IDs can be found on the development drive: https://docs.google.com/spreadsheets/d/e/2PACX-1vS0aepLrAZGfHcRobEaPLUdP8xXHzH_OUY8UHhFPbBQc0GqeXn04vKqrSlPEnaxqp0oyUpT6hqi_ElN/pubhtml
 The currently supported image replacements are:
 * Event Card Image: set the ID in ReplacementType to the ID of the event card.
