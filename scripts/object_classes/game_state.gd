@@ -69,7 +69,26 @@ func get_energy_cost_of_playing_event_card(intent_context: EffectContext) -> int
 	#var energy_cost_mod_from_player_effects: int = card_def.get_event_card_energy_mod_from_player_effects(self)
 	return card_def.get_energy_cost_of_playing_card(self,intent_context.event_card_instance.card_id)
 	
-	
+#region Variable Tracking during encounters:
+### String: Unique ID of tracker. Dictionary: Optional variables
+var encounter_trigger_tracker: Dictionary[String,Dictionary] = {}
+
+func add_to_turn_tracked_value(tracker_id: String, entity: TargetEntity, amount: int) -> void:
+	var key: String = "%s:%s" % [tracker_id, entity.get_tracker_key()]
+	if key not in encounter_trigger_tracker.keys() or encounter_trigger_tracker[key]["turn"] != current_round:
+		encounter_trigger_tracker[key] = {"turn": current_round, "value": amount}
+	else:
+		encounter_trigger_tracker[key]["value"] += amount
+
+func get_turn_tracked_value(tracker_id: String, entity: TargetEntity) -> int:
+	var key: String = "%s:%s" % [tracker_id, entity.get_tracker_key()]
+	if key not in encounter_trigger_tracker.keys():
+		return 0
+	if encounter_trigger_tracker[key]["turn"] != current_round:
+		return 0
+	return encounter_trigger_tracker[key]["value"]
+
+#endregion
 
 #region Player actions
 func add_available_player_actions(save_game_state: SaveGameState) -> void:
@@ -171,7 +190,7 @@ func get_active_opponent_type(active_opponent_id: String) -> OpponentType:
 	return currently_active_opponents[active_opponent_id].opponent_type
 func get_name_of_opponent_type(opponent_type_id: String) -> String:
 	var opponent_type: OpponentType = AutoloadDatabase.opponent_types[opponent_type_id]
-	return opponent_type.opponent_type_name
+	return opponent_type.get_opponent_type_name()
 func get_count_of_active_opponent_types() -> Dictionary:
 	var active_opponent_types: Dictionary[String, int] = {} #opponent type ID, count
 	for opponent_id in get_currently_active_opponents().keys():

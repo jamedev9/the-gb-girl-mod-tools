@@ -1,10 +1,9 @@
-[gd_resource type="Resource" script_class="VideoClip" load_steps=3 format=3 uid="uid://c4erdjnisbpt7"]
+[gd_resource type="Resource" script_class="VideoClip" load_steps=2 format=3 uid="uid://c4erdjnisbpt7"]
 
-[ext_resource type="Script" uid="uid://cftrydvia74q5" path="res://resources/videos/database/video_clip.gd" id="1_q84q3"]
-[ext_resource type="VideoStream" uid="uid://dmwewwxrccc1k" path="res://mod_export_data/videos/b_bj_02.ogv" id="2_xu36y"]
+[ext_resource type="Script" uid="uid://c17prj51bpbqp" path="res://resources/videos/database/video_clip.gd" id="1_q84q3"]
 
 [resource]
 script = ExtResource("1_q84q3")
-video_file = ExtResource("2_xu36y")
+video_file = "uid://dmwewwxrccc1k"
 action_tags = Array[int]([0])
 participant_tags = Array[int]([1])

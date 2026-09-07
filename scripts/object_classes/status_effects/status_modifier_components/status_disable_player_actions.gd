@@ -1,3 +1,4 @@
+@tool
 extends StatusModifierComponent
 class_name Status_DisablePlayerActions
 
@@ -24,3 +25,13 @@ func get_disabled_action_ids() -> Array[String]:
 		if action_id not in allowed_action_ids:
 			result.append(action_id)
 	return result
+
+### Describes the allowed_action_ids case positively ("Can only assign X") rather than resolving
+### get_disabled_action_ids() - that would list every OTHER action in the game, which is
+### technically accurate but useless to read.
+func get_description_segments() -> Array[DescriptionSegment]:
+	if not allowed_action_ids.is_empty():
+		return DescriptionBuilder.parse_template(
+			tr("STATUS_DISABLEPLAYERACTIONS_ALLOWED_TEMPLATE"), {"action_names": _action_names(allowed_action_ids)})
+	return DescriptionBuilder.parse_template(
+		tr("STATUS_DISABLEPLAYERACTIONS_DISABLED_TEMPLATE"), {"action_names": _action_names(disabled_action_ids)})

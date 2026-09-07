@@ -83,3 +83,16 @@ func get_current_count_for_reward(save_game_state: SaveGameState) -> int:
 	for action in action_ids:
 		count += save_game_state.get_opponents_defeated_by_action(action)
 	return count
+
+### For the "Available rewards" list: a track reward should only show up once the
+### player has one of the track's actions and it's actually next in line - not every
+### not-yet-unlocked reward on the track at once.
+func is_reward_available_to_show(reward_id: String,save_game_state: SaveGameState) -> bool:
+	var player_has_track_action: bool = false
+	for action_id in action_ids:
+		if action_id in save_game_state.get_owned_player_actions():
+			player_has_track_action = true
+			break
+	if not player_has_track_action:
+		return false
+	return get_next_reward_id(save_game_state) == reward_id

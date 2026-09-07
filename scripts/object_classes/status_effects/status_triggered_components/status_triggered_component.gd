@@ -1,4 +1,5 @@
-extends Resource
+@tool
+extends ModExportable
 class_name StatusTriggeredComponent
 
 @export var trigger_component_id: String
@@ -33,3 +34,11 @@ func should_component_trigger(
 
 func return_trigger_context(_intent_context: EffectContext, source: TargetEntity = null) -> TriggeredEffectContext:
 	return null
+
+### Generic description support (see DescriptionBuilder) - the "when" half of this trigger's
+### tooltip line (paired with effect_intents for the "then" half - see
+### EffectDefinition.get_tooltip_description_segments()). See
+### TriggerCondition.describe_conditions() - OpponentActionDefinition shares this same
+### trigger_conditions/only_require_one_condition shape and uses the same helper.
+func get_when_description_segments() -> Array[DescriptionSegment]:
+	return TriggerCondition.describe_conditions(trigger_conditions, only_require_one_condition)

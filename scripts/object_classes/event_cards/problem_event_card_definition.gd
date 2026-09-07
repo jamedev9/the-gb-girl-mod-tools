@@ -1,0 +1,3 @@
+@tool
+extends EventCardDefinition
+class_name ProblemEventCardDefinition

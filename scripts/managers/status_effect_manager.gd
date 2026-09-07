@@ -15,18 +15,32 @@ func _progress_status_effects_on_target_entity_(game_state: GameState,target_ent
 		_remove_instance_if_duration_is_zero(target_entity,effect_id)
 
 ### TODO: The two methods below should really be merged, as they do the same thing for statuses and passives.
-func _send_requests_for_ticking_status_effects(game_state: GameState, target_entity: TargetEntity, effect_id: String, _status_instance: Dictionary) -> void:
+func _send_requests_for_ticking_status_effects(game_state: GameState, target_entity: TargetEntity, effect_id: String, status_instance: Dictionary) -> void:
 	var status_def: StatusEffectDefinition = AutoloadDatabase.status_effects_by_id[effect_id]
 	for component in status_def.ticking_effect_components:
 		for effect_and_target_intent in component.effect_intents:
 			var base_context: EffectContext = EffectContext.new()
 			base_context.source = target_entity
+			base_context.status_placed_by = _get_still_valid_placer(status_instance)
 			base_context.id_of_effect_origin = status_def.status_id
 			base_context.effect_origin = status_def
 			base_context.game_state = game_state
 			base_context.context_phase = EffectContext.ContextPhase.INTENT
 			base_context.status_sending_context = status_def
 			emit_signal("status_effect_sends_effect_and_target_intent", base_context, effect_and_target_intent)
+
+### Recorded on the status instance when it was first applied (see
+### _resolve_applying_statuses_to_target() in main_cardgame.gd) - the entity that PLACED this
+### status, distinct from whoever currently HAS it (see EffectContext.status_placed_by for why
+### the two need to stay separate). An opponent that placed a status can be defeated and fully
+### removed from the encounter long before that status finishes ticking - polling a stale
+### reference to them here would otherwise let a dead opponent's id leak back into the pipeline,
+### so this returns null once they're gone rather than the dangling entity.
+func _get_still_valid_placer(status_instance: Dictionary) -> TargetEntity:
+	var placer: TargetEntity = status_instance.get("source")
+	if placer and placer.is_still_in_encounter():
+		return placer
+	return null
 
 func _send_requests_for_ticking_passive_effects(game_state: GameState, target_entity: TargetEntity, effect_id: String) -> void:
 	var passive_def: PassiveEffectDefinition = AutoloadDatabase.passive_effect_definitions[effect_id]

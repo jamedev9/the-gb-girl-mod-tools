@@ -59,6 +59,12 @@ func update_class_specific_displays(game_state: GameState) -> void:
 	update_energy_cost(game_state)
 	_make_unavailable_during_opponents_turn(game_state)
 	_make_unavailable_after_game_end(game_state)
+	### Re-evaluates the picture override (see display_event_card) now that main_game/
+	### meta_game/save_game_state are guaranteed valid - display_event_card() can run before
+	### this node is added to the tree, when get_selected_character_id() can't resolve a real
+	### character yet. Cheap and idempotent (card_id_already_shown skips the text work).
+	if event_card_instance:
+		display_event_card(event_card_instance)
 
 func _update_duration_display() -> void:
 	if not event_card_instance:
@@ -114,7 +120,7 @@ func display_event_card(given_card_instance: EventCardInstance) -> void:
 		var card_name_text: String = event_card_def.get_card_name()
 		event_card_name.text = card_name_text
 	var picture: Texture2D
-	picture = ImageOverrideManager.get_override_texture(ImageOverrideManager.ReplacementType.EVENT_CARD_IMAGE,given_card_instance.card_id)
+	picture = ImageOverrideManager.get_override_texture(ImageOverrideManager.ReplacementType.EVENT_CARD_IMAGE,given_card_instance.card_id,get_selected_character_id())
 	if not picture:
 		picture = event_card_def.card_picture
 	event_card_picture.texture = picture
@@ -179,7 +185,7 @@ func register_self_as_node_representing_event_card_instance(given_card_instance:
 func free_and_unregister() -> void:
 	if not main_game:
 		return
-	main_game.entity_registry.unregister_entity(event_card_instance.entity_id)
+	main_game.entity_registry.unregister_entity(event_card_instance.entity_id,self)
 	self.queue_free()
 
 func change_animation_state(new_state: AnimationState) -> void:

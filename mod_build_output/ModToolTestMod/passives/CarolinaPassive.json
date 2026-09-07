@@ -1,0 +1,41 @@
+{
+	"has_secret_description": false,
+	"hidden_during_combat": false,
+	"hidden_from_player": false,
+	"modifier_components": [],
+	"passive_description": "This woman is hot as hell.",
+	"passive_id": "carolina_passive",
+	"passive_name": "Blonde Bombshell",
+	"picture": "actor-carolina-sweets-540785_large-489440100.jpg",
+	"ticking_effect_components": [],
+	"toggleable_by_player": false,
+	"triggered_components": [
+		{
+			"_class": "StatusTriggeredComponent",
+			"effect_intents": [
+				{
+					"_class": "EffectAndTargetIntent",
+					"effect_intent": {
+						"_class": "DealDamageEffect",
+						"damage": 5,
+						"intent_effect_id": "hotlady_damage"
+					},
+					"targeting_intent": 4,
+					"targeting_rules": [
+						{
+							"_class": "TargetMostRecentlyEnteredOpponent"
+						}
+					]
+				}
+			],
+			"only_require_one_condition": false,
+			"trigger_component_id": "yooooshitshehot",
+			"trigger_conditions": [
+				{
+					"_class": "TriggerCondition_OnOpponentEnters",
+					"trigger_condition_id": ""
+				}
+			]
+		}
+	]
+}

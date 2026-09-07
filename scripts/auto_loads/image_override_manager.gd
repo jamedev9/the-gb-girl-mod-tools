@@ -7,7 +7,7 @@ enum ReplacementType {
 	OPPONENT_TYPE_IMAGE
 }
 
-var _overrides: Dictionary = {} # "%s:%s" % [ReplacementType, type_instance] -> full file path (String)
+var _overrides: Dictionary = {} # "%s:%s:%s" % [ReplacementType, type_instance, character_id] -> full file path (String)
 var _texture_cache: Dictionary = {} # image_path -> Texture2D
 
 func _ready() -> void:
@@ -54,6 +54,9 @@ func _register_replacement_set(json_path: String, mod_path: String, mod_folder_n
 	if parsed == null or not parsed.has("replacements"):
 		push_warning("Invalid image replacement file in mod '%s'" % mod_folder_name)
 		return
+	### Scoped per set, not per entry - a modder wanting both generic and character-specific
+	### overrides splits them into separate ImageReplacementSet files instead.
+	var character_id: String = str(parsed.get("character_id", ""))
 	for entry in parsed["replacements"]:
 		var type_name: String = str(entry.get("replacement_type", ""))
 		var matched_key: String = ModExportable.find_case_insensitive_enum_key(ReplacementType.keys(), type_name)
@@ -66,18 +69,28 @@ func _register_replacement_set(json_path: String, mod_path: String, mod_folder_n
 		if not FileAccess.file_exists(image_path):
 			push_warning("Image '%s' not found for mod '%s'" % [image_path, mod_folder_name])
 			continue
-		var lookup_key: String = "%s:%s" % [matched_key, target_id]
+		var lookup_key: String = _build_lookup_key(matched_key, target_id, character_id)
 		_overrides[lookup_key] = image_path
-		
 
 
-func get_override_texture(replacement_type: ReplacementType, type_instance: String) -> Texture2D:
+### character_id is part of the key (empty string = "applies to all characters") so a
+### character-scoped override and a generic one for the same target can coexist.
+func _build_lookup_key(type_name: String, target_id: String, character_id: String) -> String:
+	return "%s:%s:%s" % [type_name, target_id, character_id]
+
+## character_id is optional - pass the currently active character's id (see
+## SaveGameState.selected_character_id) to prefer a character-scoped override (see
+## ImageReplacementSet.character_id) over a generic one for the same target, falling back to
+## the generic override (or none) if no character-specific entry exists.
+func get_override_texture(replacement_type: ReplacementType, type_instance: String, character_id: String = "") -> Texture2D:
 	var type_name: String = ReplacementType.keys()[replacement_type]
-	var lookup_key: String = "%s:%s" % [type_name, type_instance]
-	if lookup_key not in _overrides.keys():
+	var image_path: String = ""
+	if character_id != "":
+		image_path = _overrides.get(_build_lookup_key(type_name, type_instance, character_id), "")
+	if image_path == "":
+		image_path = _overrides.get(_build_lookup_key(type_name, type_instance, ""), "")
+	if image_path == "":
 		return null
-
-	var image_path: String = _overrides[lookup_key]
 	if image_path in _texture_cache.keys():
 		return _texture_cache[image_path]
 

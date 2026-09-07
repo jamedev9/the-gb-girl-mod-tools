@@ -10,6 +10,7 @@ var event_cards_played: Dictionary[String,int] = {} #Event card ID, number
 var event_cards_played_per_turn: Dictionary[int,Dictionary] = {}
 var action_usage: Dictionary[String,ActionUsageStats] = {} # Action ID
 var orgasms_achieved: int = 0
+var opponent_orgasms_caused: Dictionary[String,int] = {} #Opponent ID, number of orgasms caused
 #var round_counter: int = 0
 var final_round_number: int
 var opponents_defeated_each_turn: Dictionary[int,int] #Turn #, count
@@ -94,6 +95,14 @@ func record_new_orgasms(new_orgasm_increase: int) -> void:
 func get_current_orgasm_count() -> int:
 	return orgasms_achieved
 
+func record_new_opponent_orgasms(opponent_id: String, new_orgasm_increase: int) -> void:
+	if opponent_id not in opponent_orgasms_caused.keys():
+		opponent_orgasms_caused[opponent_id] = 0
+	opponent_orgasms_caused[opponent_id] += new_orgasm_increase
+
+func get_orgasms_caused_for_opponent(opponent_id: String) -> int:
+	return opponent_orgasms_caused.get(opponent_id, 0)
+
 #func increment_turn_counter() -> void:
 	#round_counter += 1
 
@@ -118,6 +127,13 @@ func get_times_card_has_been_played(card_id: String) -> int:
 	if card_id not in event_cards_played:
 		return 0
 	return event_cards_played[card_id]
+
+## Sums play counts across every tracked card, so any of them advances the same shared count.
+func get_times_cards_have_been_played(card_ids: Array[String]) -> int:
+	var total: int = 0
+	for card_id in card_ids:
+		total += get_times_card_has_been_played(card_id)
+	return total
 
 func get_times_card_has_been_played_in_round(round_nr: int, card_id: String) -> int:
 	if round_nr not in event_cards_played_per_turn.keys():

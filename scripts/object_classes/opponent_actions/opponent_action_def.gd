@@ -25,6 +25,24 @@ func get_translation_entries() -> Array[Dictionary]:
 		{"key": prefix+"_DESCRIPTION", "text": description},
 	]
 
+### Generic description support (see DescriptionBuilder) - same effect_intents shape as
+### EventCardDefinition (EffectAndTargetIntent.describe_all() covers the whole thing on its
+### own), plus an optional gate: most opponent actions have no trigger_conditions and always
+### resolve when performed, but a couple (e.g. Force Deepthroat) only actually do anything if a
+### condition holds at resolution time (see should_action_fire()) - those get the same
+### "When {condition}: {effect}." composition passives/statuses use for their own triggers
+### (DescriptionBuilder.describe_when_then(), TriggerCondition.describe_conditions() - identical
+### trigger_conditions/only_require_one_condition shape). Falls back to the hand-written
+### description field if effect_intents somehow produces nothing.
+func get_description_segments() -> Array[DescriptionSegment]:
+	var effect_segments: Array[DescriptionSegment] = EffectAndTargetIntent.describe_all(effect_intents)
+	if effect_segments.is_empty():
+		return [DescriptionSegment.text_segment(get_action_description())]
+	if trigger_conditions.is_empty():
+		return effect_segments
+	var when_segments: Array[DescriptionSegment] = TriggerCondition.describe_conditions(trigger_conditions, only_require_one_condition)
+	return DescriptionBuilder.describe_when_then(when_segments, effect_segments)
+
 func get_video_tags():
 	return video_tags
 

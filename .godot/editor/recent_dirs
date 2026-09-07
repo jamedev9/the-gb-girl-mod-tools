@@ -1,3 +1,6 @@
+res://mod_export_data/passives
+res://scripts/object_classes/run_defining_objects/character_definitions
+res://mod_export_data/event_cards
 res://scenes
 res://mod_export_data/image_replacements
 res://scripts/auto_loads

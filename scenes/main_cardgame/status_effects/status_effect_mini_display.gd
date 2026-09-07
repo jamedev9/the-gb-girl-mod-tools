@@ -46,6 +46,9 @@ func get_color_for_category(status_category:StatusEffectDefinition.StatusCategor
 	
 func set_displayed_duration(given_duration: int) -> void:
 	duration_value.text = str(given_duration)
+
+func set_displayed_stacks(given_stacks: int) -> void:
+	stacks_value.text = str(given_stacks)
 	
 
 func _on_mouse_entered():

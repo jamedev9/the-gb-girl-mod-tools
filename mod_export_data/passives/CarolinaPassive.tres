@@ -1,0 +1,50 @@
+[gd_resource type="Resource" script_class="PassiveEffectDefinition" load_steps=17 format=3 uid="uid://dfkj8d343rohu"]
+
+[ext_resource type="Script" uid="uid://ddf1my534lql5" path="res://scripts/object_classes/status_effects/status_modifier_components/status_modifier_components.gd" id="1_0ue0c"]
+[ext_resource type="Texture2D" uid="uid://31f6kmmfhnmm" path="res://mod_export_data/images/actor-carolina-sweets-540785_large-489440100.jpg" id="2_7x5tl"]
+[ext_resource type="Script" uid="uid://cunlehessoo3a" path="res://scripts/object_classes/passive_effects/passive_effect_definition.gd" id="2_vvxfc"]
+[ext_resource type="Script" uid="uid://3kdfdqpmto2v" path="res://scripts/object_classes/status_effects/status_tick_component/status_tick_component.gd" id="3_vf0ie"]
+[ext_resource type="Script" uid="uid://bo7x3fs8m6h48" path="res://scripts/object_classes/status_effects/status_triggered_components/status_triggered_component.gd" id="4_tv54x"]
+[ext_resource type="Script" uid="uid://xwmyihojt71y" path="res://scripts/object_classes/effect_and_target_intention/effect_and_target_intent.gd" id="5_grjj3"]
+[ext_resource type="Script" uid="uid://dxi8cd7mq42h6" path="res://scripts/object_classes/event_cards/intent_effects/deal_damage_effect.gd" id="6_7x5tl"]
+[ext_resource type="Script" uid="uid://c0l7fu6wab18q" path="res://scripts/object_classes/event_cards/targeting_rules/targeting_rule.gd" id="7_0owmj"]
+[ext_resource type="Script" uid="uid://nh6oqoilvdh7" path="res://scripts/object_classes/event_cards/targeting_rules/target_most_recently_entered_opponent.gd" id="8_li1m6"]
+[ext_resource type="Script" uid="uid://ctbm05yysorbt" path="res://scripts/object_classes/trigger_conditions/trigger_condition.gd" id="9_m4ige"]
+[ext_resource type="Script" uid="uid://dhrqdcbn515rl" path="res://scripts/object_classes/trigger_conditions/trigger_on_opponent_enters.gd" id="10_18210"]
+
+[sub_resource type="Resource" id="Resource_sowub"]
+script = ExtResource("6_7x5tl")
+damage = 5
+intent_effect_id = "hotlady_damage"
+metadata/_custom_type_script = "uid://dxi8cd7mq42h6"
+
+[sub_resource type="Resource" id="Resource_djmt8"]
+script = ExtResource("8_li1m6")
+metadata/_custom_type_script = "uid://nh6oqoilvdh7"
+
+[sub_resource type="Resource" id="Resource_x366a"]
+script = ExtResource("5_grjj3")
+targeting_intent = 4
+targeting_rules = Array[ExtResource("7_0owmj")]([SubResource("Resource_djmt8")])
+effect_intent = SubResource("Resource_sowub")
+metadata/_custom_type_script = "uid://xwmyihojt71y"
+
+[sub_resource type="Resource" id="Resource_wyq5r"]
+script = ExtResource("10_18210")
+metadata/_custom_type_script = "uid://dhrqdcbn515rl"
+
+[sub_resource type="Resource" id="Resource_e76we"]
+script = ExtResource("4_tv54x")
+trigger_component_id = "yooooshitshehot"
+trigger_conditions = Array[ExtResource("9_m4ige")]([SubResource("Resource_wyq5r")])
+effect_intents = Array[ExtResource("5_grjj3")]([SubResource("Resource_x366a")])
+metadata/_custom_type_script = "uid://bo7x3fs8m6h48"
+
+[resource]
+script = ExtResource("2_vvxfc")
+passive_id = "carolina_passive"
+passive_name = "Blonde Bombshell"
+passive_description = "This woman is hot as hell."
+picture = ExtResource("2_7x5tl")
+triggered_components = Array[ExtResource("4_tv54x")]([SubResource("Resource_e76we")])
+metadata/_custom_type_script = "uid://cunlehessoo3a"

@@ -24,6 +24,9 @@ class_name CharacterDefinition
 var is_modded: bool = false
 
 func apply_to_save_game(save_game_state: SaveGameState) -> void:
+	if character_id:
+		save_game_state.selected_character_id = character_id
+
 	if character_name:
 		save_game_state.set_player_character_name(character_name)
 	
@@ -34,7 +37,7 @@ func apply_to_save_game(save_game_state: SaveGameState) -> void:
 		save_game_state.set_player_age(character_age)
 	
 	if portrait_image_path:
-		save_game_state.character_portrait_path = portrait_image_path
+		save_game_state.character_portrait_path = resolve_to_res_path(portrait_image_path)
 	
 	if not starting_actions.is_empty():
 		save_game_state.remove_all_player_actions()
@@ -99,7 +102,7 @@ func to_json_dict() -> Dictionary:
 		"character_class_name": character_class_name,
 		"character_name": character_name,
 		"character_age": character_age,
-		"portrait_image_path": _resolve_to_res_path(portrait_image_path) , #.get_file(), ### store filename only
+		"portrait_image_path": resolve_to_res_path(portrait_image_path) , #.get_file(), ### store filename only
 		"video_participant_tags": VideoClip._convert_participant_tags_to_string(video_participant_tags,character_id),
 		"starting_passives": starting_passives,
 		"starting_actions": starting_actions,
@@ -113,15 +116,6 @@ func to_json_dict() -> Dictionary:
 		"starting_reward_cards_for_actions":starting_reward_cards_for_actions
 		
 	}
-
-static func _resolve_to_res_path(path: String) -> String:
-	if path.begins_with("uid://"):
-		var uid: int = ResourceUID.text_to_id(path)
-		if ResourceUID.has_id(uid):
-			return ResourceUID.get_id_path(uid)
-		push_warning("Could not resolve uid path: %s" % path)
-		return ""
-	return path
 
 static func from_json_dict(data: Dictionary, mod_folder_path: String = "") -> CharacterDefinition:
 	var character_def := CharacterDefinition.new()

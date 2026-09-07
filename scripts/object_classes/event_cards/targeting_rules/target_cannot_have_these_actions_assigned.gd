@@ -1,3 +1,4 @@
+@tool
 extends TargetingRule
 class_name TargetCannotHaveTheseActionsAssigned
 

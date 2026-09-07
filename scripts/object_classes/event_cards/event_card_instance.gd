@@ -47,3 +47,7 @@ func get_opponents_with_one_of_required_actions(game_state: GameState) -> Array[
 func get_effect_intents() -> Array[EffectAndTargetIntent]:
 	var card_def: EventCardDefinition = AutoloadDatabase.event_cards_by_id[card_id]
 	return card_def.get_effect_intents()
+
+func is_immune_to_random_discard() -> bool:
+	var card_def: EventCardDefinition = AutoloadDatabase.event_cards_by_id[card_id]
+	return card_def.is_immune_to_random_discard()

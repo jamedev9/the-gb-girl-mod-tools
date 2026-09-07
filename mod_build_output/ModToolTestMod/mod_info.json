@@ -1,8 +1,10 @@
 {
 	"author": "gb_girl_dev",
 	"content": {
-		"CharacterDefinition": 0,
+		"CharacterDefinition": 1,
+		"EventCardDefinition": 1,
 		"ImageReplacementSet": 1,
+		"PassiveEffectDefinition": 1,
 		"VideoClip": 8
 	},
 	"mod_name": "ModToolTestMod",

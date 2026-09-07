@@ -30,7 +30,7 @@ func  calculate_pleasure_bar_length(max_length,_current_pleasure) -> float:
 	var pleasure_length: float
 	if _current_pleasure == 0:
 		return 0
-	if current_pleasure > max_pleasure:
+	if _current_pleasure > max_pleasure:
 		pleasure_length = max_length
 	else:
 		pleasure_length = max_length*_current_pleasure/max_pleasure
@@ -53,6 +53,7 @@ func drain_pleasure_bar() -> void:
 
 func animate_pleasure_bar_to_value(value_to_hit: int, duration: float) -> void:
 	await _tween_pleasure_bar_to_value(value_to_hit, duration)
+	current_pleasure = value_to_hit
 
 func _tween_pleasure_bar_to_value(value_to_hit:int, duration: float) -> void:
 	var pleasure_bar_final_length: float =calculate_pleasure_bar_length(

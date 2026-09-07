@@ -1,4 +1,5 @@
-extends Resource
+@tool
+extends ModExportable
 class_name CardsToAddIntent
 
 @export var event_card_id: String

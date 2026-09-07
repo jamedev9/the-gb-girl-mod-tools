@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="ImageReplacementSet" load_steps=6 format=3 uid="uid://c484gk7uf5af0"]
 
-[ext_resource type="Script" uid="uid://cudi1bsicc5lx" path="res://tools/modding/image_replacement/image_replacement.gd" id="1_o20xc"]
-[ext_resource type="Script" uid="uid://tcj4af2wqd3b" path="res://tools/modding/image_replacement/image_replacement_set.gd" id="2_vt6ca"]
+[ext_resource type="Script" uid="uid://0uy3884mdwnr" path="res://tools/modding/image_replacement/image_replacement.gd" id="1_o20xc"]
+[ext_resource type="Script" uid="uid://dyno0cnj530qj" path="res://tools/modding/image_replacement/image_replacement_set.gd" id="2_vt6ca"]
 
 [sub_resource type="Resource" id="Resource_o20xc"]
 script = ExtResource("1_o20xc")
@@ -25,4 +25,5 @@ metadata/_custom_type_script = "uid://0uy3884mdwnr"
 
 [resource]
 script = ExtResource("2_vt6ca")
+character_id = "carolina_sweets"
 replacements = Array[ExtResource("1_o20xc")]([SubResource("Resource_o20xc"), SubResource("Resource_vt6ca"), SubResource("Resource_ux1wd")])

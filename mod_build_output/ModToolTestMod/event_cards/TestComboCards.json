@@ -1,0 +1,28 @@
+{
+	"_class": "ComboEventCardDefinition",
+	"always_in_opening_hand": false,
+	"card_name": "Foot & Mouth",
+	"card_picture": "dec04391f1ef2830f16e804c46397160.jpeg",
+	"card_type_id": "footjobbjcombo",
+	"category": "DEPRAVITY",
+	"description": "Testcard_Gain3Energy",
+	"effect_intents": [
+		{
+			"_class": "EffectAndTargetIntent",
+			"effect_intent": {
+				"_class": "ApplyEnergyDelta",
+				"energy_delta": -3,
+				"intent_effect_id": ""
+			},
+			"targeting_intent": 1,
+			"targeting_rules": []
+		}
+	],
+	"energy_cost": 0,
+	"once_per_game": false,
+	"priority": 4,
+	"required_action_ids": [
+		"footjob",
+		"bj"
+	]
+}

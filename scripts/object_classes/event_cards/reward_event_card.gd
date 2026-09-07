@@ -1,2 +1,3 @@
+@tool
 extends EventCardDefinition
 class_name RewardEventCardDefinition

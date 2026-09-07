@@ -8,13 +8,19 @@
 	},
 	"minimum_deck_size": 20,
 	"portrait_image_path": "actor-carolina-sweets-540785_large-489440100.jpg",
-	"starting_actions": [],
+	"starting_actions": [
+		"footjob",
+		"bj",
+		"vaginal"
+	],
 	"starting_ally_card": "",
 	"starting_max_energy": 10,
 	"starting_max_pleasure": 100,
 	"starting_orgasm_card": "",
 	"starting_orgasms": 2,
-	"starting_passives": [],
+	"starting_passives": [
+		"carolina_passive"
+	],
 	"starting_reward_cards_for_actions": {
 
 	},

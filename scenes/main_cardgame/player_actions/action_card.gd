@@ -74,6 +74,23 @@ func update_class_specific_displays(game_state: GameState) -> void:
 	_make_unavailable_during_opponents_turn(game_state)
 	_make_unavailable_after_game_end(game_state)
 	show_if_disabled_by_status(game_state)
+	refresh_picture_override()
+
+### Re-evaluates the picture override now that main_game/meta_game/save_game_state are
+### guaranteed valid - display_action() can run before this node is added to the tree, when
+### get_selected_character_id() can't resolve a real character yet. Not folded into
+### display_action() itself since that re-instantiates status_pics_container children
+### unconditionally and isn't safe to call twice. Public: also called from
+### IndividualActionCardDisplay.update_when_save_game_changes() for the meta-game/overworld
+### action panels, which reuse this same ActionCard scene but never fire game_state_changed
+### (that's a combat-turn signal, not emitted while just browsing the meta-game).
+func refresh_picture_override() -> void:
+	if not represented_action:
+		return
+	var picture: Texture2D = ImageOverrideManager.get_override_texture(ImageOverrideManager.ReplacementType.ACTION_CARD_IMAGE,represented_action_id,get_selected_character_id())
+	if not picture:
+		picture = represented_action.picture
+	action_picture.texture = picture
 
 func show_if_disabled_by_status(game_state: GameState) -> void:
 	### Single source of truth for "which actions are currently disabled" - matches
@@ -110,7 +127,7 @@ func display_action(action_id:String) -> void:
 		status_pics_container.add_child(new_status_pic)
 	
 	var picture: Texture2D
-	picture = ImageOverrideManager.get_override_texture(ImageOverrideManager.ReplacementType.ACTION_CARD_IMAGE,action_id)
+	picture = ImageOverrideManager.get_override_texture(ImageOverrideManager.ReplacementType.ACTION_CARD_IMAGE,action_id,get_selected_character_id())
 	if not picture:
 		picture = represented_action.picture
 		
@@ -131,7 +148,7 @@ func register_card_in_entity_registry() -> void:
 func free_and_unregister() -> void:
 	if not main_game:
 		return
-	main_game.entity_registry.unregister_entity(represented_action_id)
+	main_game.entity_registry.unregister_entity(represented_action_id,self)
 	#print("FREE:", represented_action_id, " ", get_instance_id())
 	self.queue_free()
 

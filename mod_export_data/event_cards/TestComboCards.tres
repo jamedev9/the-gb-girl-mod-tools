@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="ComboEventCardDefinition" load_steps=9 format=3 uid="uid://blqhy112qxtty"]
+
+[ext_resource type="Script" uid="uid://xwmyihojt71y" path="res://scripts/object_classes/effect_and_target_intention/effect_and_target_intent.gd" id="1_4jnj3"]
+[ext_resource type="Texture2D" uid="uid://dh2vcmdaglojv" path="res://mod_export_data/images/dec04391f1ef2830f16e804c46397160.jpeg" id="1_af25i"]
+[ext_resource type="Script" uid="uid://bko6foq6x4qu8" path="res://scripts/object_classes/event_cards/combo_event_card_definition.gd" id="2_y5xo0"]
+[ext_resource type="Script" uid="uid://ceb2gtu6fty57" path="res://content_packs/00_real_porn_035_and_earlier/assets/audio/sound_effects/audio_streams_for_sound_effect.gd" id="3_af25i"]
+[ext_resource type="Script" uid="uid://c0l7fu6wab18q" path="res://scripts/object_classes/event_cards/targeting_rules/targeting_rule.gd" id="3_ksn1q"]
+[ext_resource type="Script" uid="uid://c6thyvokf1brj" path="res://scripts/object_classes/event_cards/intent_effects/apply_energy_delta.gd" id="3_lq3of"]
+
+[sub_resource type="Resource" id="Resource_cblfm"]
+script = ExtResource("3_lq3of")
+energy_delta = -3
+metadata/_custom_type_script = "uid://c6thyvokf1brj"
+
+[sub_resource type="Resource" id="Resource_lq3of"]
+script = ExtResource("1_4jnj3")
+targeting_intent = 1
+effect_intent = SubResource("Resource_cblfm")
+metadata/_custom_type_script = "uid://xwmyihojt71y"
+
+[resource]
+script = ExtResource("2_y5xo0")
+required_action_ids = Array[String](["footjob", "bj"])
+priority = 4
+card_type_id = "footjobbjcombo"
+card_name = "Foot & Mouth"
+description = "Testcard_Gain3Energy"
+card_picture = ExtResource("1_af25i")
+category = 3
+effect_intents = Array[ExtResource("1_4jnj3")]([SubResource("Resource_lq3of")])
+video_action_tags = Array[int]([36])
+metadata/_custom_type_script = "uid://bko6foq6x4qu8"

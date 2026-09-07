@@ -1,4 +1,4 @@
-extends Node
+extends RefCounted
 class_name TargetEntity
 
 var game_state: GameState
@@ -10,6 +10,17 @@ func get_status_effects() -> Dictionary:
 	return {}
 func get_passive_effects() -> Array:
 	return []
+func get_tracker_key() -> String:
+	return "player"
+
+### An entity reference (e.g. EffectContext.status_placed_by) can outlive what it points to - an
+### opponent that placed a status can be defeated and removed from currently_active_opponents
+### long before that status finishes ticking. Default true (the Player is never "removed" this
+### way); OpponentEntity overrides this to actually check. Callers that poll a stored entity
+### reference and can't tell if it's stale should check this rather than assuming any non-null
+### TargetEntity is safe to query.
+func is_still_in_encounter() -> bool:
+	return true
 
 #endregion
 

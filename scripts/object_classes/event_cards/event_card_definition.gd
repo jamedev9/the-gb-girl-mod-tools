@@ -1,4 +1,5 @@
-extends Resource
+@tool
+extends ModExportable
 class_name EventCardDefinition
 
 @export var card_type_id: String
@@ -71,6 +72,11 @@ func card_requires_targeted_opponent() -> bool:
 			return true
 	return false
 
+### Combo/Orgasm cards are earned through play and meant to stick around - never let a random
+### discard effect take them.
+func is_immune_to_random_discard() -> bool:
+	return category == CardCategory.COMBO or category == CardCategory.ORGASM_REWARD
+
 func get_sound_effects_to_play_on_resoluion() -> Array[AudioStream]:
 	var streams: Array[AudioStream] = []
 	for list in sound_effects:
@@ -126,7 +132,6 @@ static func get_energy_cost_of_playing_card(game_state: GameState,card_id: Strin
 
 static func get_event_card_energy_mod_from_player_effects(
 	game_state: GameState,event_card_def: EventCardDefinition) -> int:
-	#print("Running get_event_card_energy_mod_from_player_effects for event card: %s"%event_card_def.card_name)
 	var return_count: int = 0
 	var player_statuses = game_state.get_player_statuses()
 	for active_status in player_statuses:
@@ -136,12 +141,12 @@ static func get_event_card_energy_mod_from_player_effects(
 				#print("component is not ChangeCostOfPlayingCards")
 				continue 
 			if component.all_cards:
-				return_count += component.energy_delta
+				return_count += component.get_energy_delta(game_state)
 				continue
 			for card_id in component.get_list_of_cards():
 				#print("Found passive modifying event card energy: %s"%component.status_modifier_component_id)
 				if card_id == event_card_def.card_type_id:
-					return_count += component.energy_delta
+					return_count += component.get_energy_delta(game_state)
 				
 	var player_passives = game_state.get_active_player_passives()
 	for passive_id in player_passives:
@@ -153,12 +158,12 @@ static func get_event_card_energy_mod_from_player_effects(
 				#print("component is not ChangeCostOfPlayingCards")
 				continue 
 			if component.all_cards:
-				return_count += component.energy_delta
+				return_count += component.get_energy_delta(game_state)
 				continue
 			for card_id in component.get_list_of_cards():
 				#print("Found passive modifying event card energy: %s"%component.status_modifier_component_id)
 				if card_id == event_card_def.card_type_id:
-					return_count += component.energy_delta
+					return_count += component.get_energy_delta(game_state)
 	
 	#print("Returning modifying count: %s"%return_count)
 	return return_count
@@ -197,3 +202,83 @@ func get_opponents_with_one_of_required_actions(game_state: GameState) -> Array[
 
 func get_effect_intents() -> Array[EffectAndTargetIntent]:
 	return effect_intents
+
+func get_mod_export_subfolder() -> String:
+	return "event_cards"
+
+func get_file_reference_fields() -> Dictionary:
+	return {"card_picture": "images"}
+
+### Hand-written rather than the generic ModExportable default because card_picture: Texture2D
+### is a file reference, not embeddable data - see get_file_reference_fields() above.
+func to_json_dict() -> Dictionary:
+	var intent_dicts: Array = []
+	for intent in effect_intents:
+		intent_dicts.append(intent.to_json_dict())
+
+	var result: Dictionary = {
+		"_class": get_script().get_global_name(),
+		"card_type_id": card_type_id,
+		"card_name": card_name,
+		"description": description,
+		"card_picture": ModExportable.resolve_to_res_path(card_picture.resource_path) if card_picture else "",
+		"category": CardCategory.keys()[category],
+		"once_per_game": once_per_game,
+		"always_in_opening_hand": always_in_opening_hand,
+		"energy_cost": energy_cost,
+		"effect_intents": intent_dicts,
+	}
+	if self is ComboEventCardDefinition:
+		var combo_self := self as ComboEventCardDefinition
+		result["required_action_ids"] = combo_self.required_action_ids
+		result["priority"] = combo_self.priority
+	return result
+
+### Reconstructs the correct subclass (EventCardDefinition, RewardEventCardDefinition, or
+### OrgasmEventCardDefinition) from the "_class" tag written by to_json_dict() above - same tag
+### convention as everything else in ModExportable, just dispatched by hand here since this class
+### needs file-reference handling the generic path (ModdableResourceRegistry.instantiate(), which
+### always calls the generic populate_from_json_dict()) can't provide.
+static func from_json_dict(data: Dictionary, mod_folder_path: String = "") -> EventCardDefinition:
+	var card_def: EventCardDefinition
+	match data.get("_class", "EventCardDefinition"):
+		"OrgasmEventCardDefinition":
+			card_def = OrgasmEventCardDefinition.new()
+		"RewardEventCardDefinition":
+			card_def = RewardEventCardDefinition.new()
+		"ComboEventCardDefinition":
+			card_def = ComboEventCardDefinition.new()
+		"ProblemEventCardDefinition":
+			card_def = ProblemEventCardDefinition.new()
+		_:
+			card_def = EventCardDefinition.new()
+	card_def.card_type_id = data.get("card_type_id", "")
+	card_def.card_name = data.get("card_name", "")
+	card_def.description = data.get("description", "")
+	card_def.once_per_game = data.get("once_per_game", false)
+	card_def.always_in_opening_hand = data.get("always_in_opening_hand", false)
+	card_def.energy_cost = int(data.get("energy_cost", 0))
+
+	var category_name: String = data.get("category", "")
+	var matched_category_key: String = ModExportable.find_case_insensitive_enum_key(CardCategory.keys(), category_name)
+	if matched_category_key != "":
+		card_def.category = CardCategory[matched_category_key]
+
+	var picture_file_name: String = data.get("card_picture", "")
+	if picture_file_name != "" and mod_folder_path != "":
+		card_def.card_picture = Utils.load_texture_from_path(mod_folder_path.path_join(picture_file_name))
+
+	for intent_data in data.get("effect_intents", []):
+		var intent: EffectAndTargetIntent = ModdableResourceRegistry.instantiate(intent_data) as EffectAndTargetIntent
+		if intent:
+			card_def.effect_intents.append(intent)
+
+	if card_def is ComboEventCardDefinition:
+		var combo_def := card_def as ComboEventCardDefinition
+		var ids: Array[String] = []
+		for id in data.get("required_action_ids", []):
+			ids.append(str(id))
+		combo_def.required_action_ids = ids
+		combo_def.priority = int(data.get("priority", 0))
+
+	return card_def

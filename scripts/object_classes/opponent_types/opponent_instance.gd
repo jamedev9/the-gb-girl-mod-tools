@@ -6,6 +6,8 @@ var opponent_id: String
 var opponent_name: String
 
 var current_damage: int = 0
+var orgasms_experienced: int = 0
+var orgasms_restored: int = 0
 var status_effects: Dictionary
 
 var damage_tracking_index: int = 0
@@ -24,6 +26,11 @@ func choose_action(_context: EffectContext=null) -> OpponentActionDefinition:
 func get_opponent_name_from_type(_opponent_type: OpponentType) -> String:
 	return _opponent_type.get_random_name()
 	
+func get_remaining_orgasms() -> int:
+	### We subtract 1 from the count to make this work the same way as the players orgasm tracker:
+	### Defeat occurs when you orgasm without any more in the "bank".
+	return opponent_type.orgasms_before_defeat - orgasms_experienced + orgasms_restored - 1
+
 func log_damage_taken(context: EffectContext,damage: int) -> void:
 	damage_tracking_dict[damage_tracking_index] = {"context":context,"damage":damage}
 	damage_tracking_index += 1

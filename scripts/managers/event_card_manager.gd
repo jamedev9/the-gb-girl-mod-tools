@@ -142,10 +142,15 @@ func _discard_n_cards_randomly_(game_state:GameState, effect_context: EffectCont
 	if hand.is_empty() or nr_of_cards <= 0:
 		return
 	
-	var cards_that_can_be_discarded: Array = hand.duplicate()
-	cards_that_can_be_discarded.erase(card_causing_discard_effect)
-		
-	var max_cards_that_can_be_discarded: int = cards_that_can_be_discarded.size() #Hand size minus the resolving card
+	var cards_that_can_be_discarded: Array = []
+	for card_instance in hand:
+		if card_instance == card_causing_discard_effect:
+			continue
+		if card_instance.is_immune_to_random_discard():
+			continue
+		cards_that_can_be_discarded.append(card_instance)
+
+	var max_cards_that_can_be_discarded: int = cards_that_can_be_discarded.size() #Hand size minus the resolving card, minus any cards immune to random discard
 	
 	var discard_count: int = min(nr_of_cards, max_cards_that_can_be_discarded)
 	var discard_list: Array[EventCardInstance] = []
@@ -158,6 +163,14 @@ func _discard_n_cards_randomly_(game_state:GameState, effect_context: EffectCont
 	
 	for card in discard_list:
 		_discard_card_(game_state,card)
+
+func _discard_entire_hand_(game_state:GameState, effect_context: EffectContext) -> void:
+	var card_causing_discard_effect: EventCardInstance = effect_context.event_card_instance
+	var hand: Array = game_state.event_cards_hand.duplicate()
+	for card_instance in hand:
+		if card_instance == card_causing_discard_effect:
+			continue
+		_discard_card_(game_state,card_instance)
 
 func _empty_discard_pile_(game_state: GameState) -> void:
 	game_state.event_cards_discard.clear()

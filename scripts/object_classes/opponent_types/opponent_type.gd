@@ -12,6 +12,7 @@ class_name OpponentType
 @export var card_color: Color = Color(0.286, 0.714, 1.0, 1.0)
 
 @export var max_damage: int
+@export var orgasms_before_defeat: int = 1
 
 @export var available_actions: Array[OpponentActionDefinition]
 @export var action_strategy: OpponentActionStrategy

@@ -1,3 +1,5 @@
+PassiveEffectDefinition
+ComboEventCardDefinition
 ImageReplacementSet
 CharacterDefinition
 VideoClip

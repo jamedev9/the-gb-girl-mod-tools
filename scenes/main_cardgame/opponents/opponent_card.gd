@@ -29,6 +29,12 @@ static func find_hovered_opponent_card(viewport: Viewport) -> OpponentCard:
 @export var opponent_action_mini_display: OpponentActionMiniDisplay
 @export var current_healing_container: Control
 @export var video_and_idle_pic: Control
+@export var orgasm_panel: Control
+@export var orgasm_icon: OrgasmIcon
+@export var orgasm_remaining_label: Label
+@export var orgasms_so_far_label: Label
+
+const ORGASMS_SO_FAR_KEY: String = "UI_PLAYER_STAT_ORGASMS_SO_FAR_LABEL"
 
 var opponent_id: String
 var displayed_opponent_instance: OpponentInstance
@@ -68,6 +74,7 @@ func _refresh_text() -> void:
 	if not displayed_opponent_type:
 		return
 	_display_opponent_type_name(displayed_opponent_type)
+	refresh_orgasm_display()
 
 
 func _process(_delta: float) -> void:
@@ -127,6 +134,12 @@ func get_opponent_type() -> OpponentType:
 
 func update_class_specific_displays(game_state:GameState) -> void:
 	_clear_video_if_no_action_is_active(game_state)
+	### Re-evaluates the picture override now that main_game/meta_game/save_game_state are
+	### guaranteed valid - display_opponent()/_show_opponent_type_info() can run before this
+	### node is added to the tree, when get_selected_character_id() can't resolve a real
+	### character yet. _set_opponent_picture_from_type() is side-effect-free, safe to re-run.
+	if displayed_opponent_type:
+		_set_opponent_picture_from_type(displayed_opponent_type)
 
 func display_opponent(game_state: GameState,given_opponent_id: String) -> void:
 	self.opponent_id =  given_opponent_id
@@ -141,6 +154,7 @@ func display_opponent(game_state: GameState,given_opponent_id: String) -> void:
 	_change_background_color(displayed_opponent_type)
 	_register_self_as_node_representing_opponent_id(given_opponent_id)
 	simple_pleasure_bar.initialize_values(displayed_opponent_type.max_damage)
+	refresh_orgasm_display()
 
 
 func _add_idle_picture_of_opponents_cock(given_opponent_type: OpponentType) -> void:
@@ -156,7 +170,7 @@ func _register_self_as_node_representing_opponent_id(given_opponent_id: String) 
 func free_and_unregister() -> void:
 	if not main_game:
 		return
-	main_game.entity_registry.unregister_entity(opponent_id)
+	main_game.entity_registry.unregister_entity(opponent_id,self)
 	self.queue_free()
 
 func update_opponent_display(game_state: GameState) -> void:
@@ -168,11 +182,11 @@ func update_opponent_display(game_state: GameState) -> void:
 		
 	_set_opponent_picture_from_type(opponent_instance.opponent_type)
 	_display_opponent_type_name(opponent_instance.opponent_type)
-	#opponent_type.text = opponent_instance.opponent_type.opponent_type_name
 	_handle_player_action_card(game_state)
 	#_handle_upcoming_opponent_action(game_state,self.opponent_id)
 	_handle_passive_effects(displayed_opponent_type)
 	_handle_active_status_effects(game_state,self.opponent_id)
+	refresh_orgasm_display()
 
 func _show_opponent_type_info(given_opponent_type: OpponentType) -> void:
 	_set_opponent_picture_from_type(given_opponent_type)
@@ -181,11 +195,10 @@ func _show_opponent_type_info(given_opponent_type: OpponentType) -> void:
 
 func _display_opponent_type_name(given_opponent_type: OpponentType) -> void:
 	opponent_type.text = given_opponent_type.get_opponent_type_name()
-	#opponent_type.text = given_opponent_type.opponent_type_name
 
 func _set_opponent_picture_from_type(given_opponent_type: OpponentType) -> void:
 	var picture: Texture2D
-	picture = ImageOverrideManager.get_override_texture(ImageOverrideManager.ReplacementType.OPPONENT_TYPE_IMAGE,given_opponent_type.opponent_type_id)
+	picture = ImageOverrideManager.get_override_texture(ImageOverrideManager.ReplacementType.OPPONENT_TYPE_IMAGE,given_opponent_type.opponent_type_id,get_selected_character_id())
 	if not picture:
 		picture = given_opponent_type.picture
 	opponent_picture.texture = picture
@@ -295,7 +308,26 @@ func _set_upcoming_damage_label_text(action_damage: int) -> void:
 
 func update_displayed_values_when_taking_damage(current_pleasure: int) -> void: #Called by animation handler for damage
 	simple_pleasure_bar.set_current_pleasure(current_pleasure)
-	
+
+func drain_pleasure_bar(duration: float) -> void: #Called by the orgasm animation handler, mirrors PlayerCombatStatDisplay
+	await simple_pleasure_bar.animate_pleasure_bar_to_value(0,duration)
+
+func animate_pleasure_bar_to_value(pleasure_after_orgasm: int,duration: float) -> void: #Mirrors PlayerCombatStatDisplay
+	await simple_pleasure_bar.animate_pleasure_bar_to_value(pleasure_after_orgasm,duration)
+
+func get_orgasm_counter() -> Control: #Called by animation handler, mirrors PlayerCombatStatDisplay
+	return orgasm_icon
+
+func refresh_orgasm_display() -> void: #Called on display/update and by the orgasm animation handler
+	if not displayed_opponent_instance:
+		return
+	var multi_orgasm: bool = displayed_opponent_instance.opponent_type.orgasms_before_defeat > 1
+	orgasm_panel.visible = multi_orgasm
+	if not multi_orgasm:
+		return
+	orgasm_remaining_label.text = str(displayed_opponent_instance.get_remaining_orgasms())
+	orgasms_so_far_label.text = tr(ORGASMS_SO_FAR_KEY) % displayed_opponent_instance.orgasms_experienced
+
 #endregion
 
 #region Check for status effects
@@ -315,20 +347,36 @@ func _handle_passive_effects(given_opponent_type: OpponentType) -> void:
 	CombatProfiler.end_timer(timer_id, "UI_REBUILD",
 		"freed=%d instantiated=%d" % [freed_count, given_opponent_type.passive_effects.size()])
 
+### Diffs against game_state instead of wiping and rebuilding every status display, so this
+### doesn't fight with animation_status_effect_applied_to_target.gd/refresh_status_on_target.gd,
+### which add/update a status's display directly the moment its animation plays (well before
+### this runs - game_state_changed only fires once that action's whole animation queue has
+### drained). Update-in-place if already displayed (regardless of whether the animation path or
+### this same function added it), add only if genuinely missing (a safety net for anything that
+### doesn't go through the normal animated-apply path), remove only what's no longer in
+### game_state (this is also the only place status removal ever happens - there's no dedicated
+### removal animation).
 func _handle_active_status_effects(game_state: GameState, _opponent_id: String) -> void:
 	var timer_id: String = "status_rebuild_%s" % opponent_id
 	CombatProfiler.begin_timer(timer_id)
+	var active_statuses: Dictionary = game_state.get_opponent_instance(_opponent_id).status_effects
 	var freed_count: int = 0
+	var added_count: int = 0
 	for child in container_for_status_displays.get_children():
 		if child is StatusEffectMiniDisplay:
-			child.queue_free()
-			freed_count += 1
-	var active_statuses: Dictionary = game_state.get_opponent_instance(_opponent_id).status_effects
+			if not child.represented_status_effect or not active_statuses.has(child.represented_status_effect.status_id):
+				child.queue_free()
+				freed_count += 1
 	for status_id in active_statuses.keys():
-		var _status_display = add_new_status_display(status_id) # Child added inside "add_new_status_display"
-		# This is to let animation call "add_new_status_display" and get the display for animations.
+		var existing_display: StatusEffectMiniDisplay = get_display_for_status(status_id)
+		if existing_display:
+			existing_display.set_displayed_duration(active_statuses[status_id]["duration"])
+			existing_display.set_displayed_stacks(active_statuses[status_id]["stacks"])
+			continue
+		add_new_status_display(status_id) # Child added inside "add_new_status_display"
+		added_count += 1
 	CombatProfiler.end_timer(timer_id, "UI_REBUILD",
-		"freed=%d instantiated=%d" % [freed_count, active_statuses.size()])
+		"freed=%d instantiated=%d" % [freed_count, added_count])
 
 func add_new_status_display(status_id: String) -> StatusEffectMiniDisplay:
 		var status_display: StatusEffectMiniDisplay = status_mini_display_scene.instantiate()

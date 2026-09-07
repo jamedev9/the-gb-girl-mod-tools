@@ -42,7 +42,30 @@ func _retroactively_add_missing_features_() -> void:
 	_convert_deck_presets_to_build_presets()
 	_migrate_ally_cards_out_of_decks()
 	unlock_action_rewards_already_achieved()
-	
+	_apply_analqueen_max_pleasure_buff()
+
+var retroactive_migrations_applied: Dictionary = {} ### migration ID (String) -> true, once applied
+
+func _migration_already_applied(migration_id: String) -> bool:
+	return migration_id in retroactive_migrations_applied.keys()
+
+func _mark_migration_applied(migration_id: String) -> void:
+	retroactive_migrations_applied[migration_id] = true
+
+func _apply_analqueen_max_pleasure_buff() -> void:
+	### Anal Queen's starting_max_pleasure was raised from 60 to 80 in 0.3.6. Saves made on
+	### 0.3.5 or earlier that already picked her locked in the old, lower value - give them
+	### the missing +20 once.
+	var migration_id: String = "analqueen_max_pleasure_buff_0_3_6"
+	if _migration_already_applied(migration_id):
+		return
+	if get_character_class() != "Anal Queen":
+		return
+	if Utils.compare_versions(game_version, "0.3.5") == Utils.VersionComparison.AFTER:
+		return
+	player["damage_threshold"] += 20
+	_mark_migration_applied(migration_id)
+
 func _migrate_ally_cards_out_of_decks() -> void:
 	_strip_ally_cards_from_deck(current_build["event_cards_deck"])
 	for build_name in saved_builds.keys():
@@ -349,6 +372,9 @@ var default_owned_player_actions: Array = ["bj","vaginal"]
 var owned_player_actions: Array = ["bj","vaginal"]
 var currently_used_player_actions: Array = ["bj","vaginal"]
 
+func get_owned_player_actions() -> Array:
+	return owned_player_actions
+
 func remove_all_player_actions() -> void: ### Only really used in start of new game
 	owned_player_actions.clear()
 	currently_used_player_actions.clear()
@@ -491,16 +517,7 @@ func change_portrait_path(new_path: String) -> void:
 
 func get_character_portrait() -> Texture2D:
 	var resolved_path: String = _resolve_portrait_path(character_portrait_path)
-
-	if "res://" in resolved_path:
-		return Utils.load_asset(resolved_path)
-	if resolved_path == "":
-		return load(DEFAULT_PORTRAIT_PATH)
-	if not FileAccess.file_exists(resolved_path):
-		push_error("Portrait file not found at path: %s" % resolved_path)
-		return load(DEFAULT_PORTRAIT_PATH)
-	var image := Image.load_from_file(resolved_path)
-	return ImageTexture.create_from_image(image)
+	return Utils.load_texture_from_path(resolved_path, load(DEFAULT_PORTRAIT_PATH))
 
 func _resolve_portrait_path(path: String) -> String:
 	if path.begins_with(LEGACY_ASSET_PREFIX):
@@ -692,7 +709,8 @@ func to_dict() -> Dictionary:
 		"character_video_particpatipant_tags":character_video_particpatipant_tags,
 		"triggered_effects_tracking":triggered_effects_tracking,
 		"rewards_unlocked_during_last_encounter":rewards_unlocked_during_last_encounter,
-		"owned_ally_cards":owned_ally_cards
+		"owned_ally_cards":owned_ally_cards,
+		"retroactive_migrations_applied":retroactive_migrations_applied
 		#"tutorial_stages_completed":tutorial_stages_completed
 	}
 
@@ -731,6 +749,7 @@ func from_dict(data: Dictionary) -> void:
 	triggered_effects_tracking = data.get("triggered_effects_tracking",{})
 	rewards_unlocked_during_last_encounter = data.get("rewards_unlocked_during_last_encounter",[])
 	owned_ally_cards = data.get("owned_ally_cards",[])
+	retroactive_migrations_applied = data.get("retroactive_migrations_applied",{})
 	
 #region Handling encounter reports:
 func apply_encounter_report(report: EncounterReport) -> void:

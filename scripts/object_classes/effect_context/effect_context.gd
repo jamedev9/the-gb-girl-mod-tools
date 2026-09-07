@@ -58,6 +58,21 @@ var statuses_to_clear: Array[String]
 #Structure: {"def":StatusEffectDefnition,"duration":int,"stacks": int}
 var passive_sending_context: PassiveEffectDefinition
 
+### The entity that ORIGINALLY PLACED the status currently ticking - distinct from `source`
+### above, which for a status's own ticking effect is instead the entity that HAS the status
+### (so TargetingSystem.TargetingMode.SOURCE_OF_EFFECT can still resolve the tick's target to
+### "whoever holds this status" - see StatusEffectManager._send_requests_for_ticking_status_effects()).
+### Only EffectContextManager._modify_intent_context_with_passive_and_status_effects() reads this,
+### to decide whose OUTGOING modifiers apply to the tick - the placer's, not the holder's own. A
+### status the player put on an opponent (e.g. "gain 10 Pleasure every turn") was "given" by the
+### player, so the player's outgoing modifiers should apply to it, and the holder's own
+### OUTGOING-only debuffs (e.g. a "your Pleasure given is halved" status) should NOT - see the
+### 2026 bugfix where a "half Pleasure given" debuff was incorrectly nerfing a Pleasure-per-turn
+### status the debuffed opponent never actually "gave" to anyone. Left null (falls back to
+### `source`) for anything that isn't a status tick - e.g. passive ticks, which aren't "placed" by
+### another entity in this sense.
+var status_placed_by: TargetEntity
+
 var target_is_immune_to_status_effects: bool = false
 
 # entering triggers:
@@ -67,6 +82,7 @@ var added_pleasure_to_new_opponents: int
 var card_flow_effect: bool
 var cards_to_draw: int
 var discard_n_randomly: int
+var discard_hand: bool
 var shuffle_deck: bool
 var add_cards_to_hand: Array[CardsToAddIntent] #card ID's
 var add_cards_to_deck: Array[CardsToAddIntent] #card ID's

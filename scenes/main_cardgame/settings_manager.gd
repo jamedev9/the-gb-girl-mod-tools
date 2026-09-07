@@ -18,9 +18,16 @@ const DEFAULT_ANIMATION_SPEED_MULTIPLIER_SCALE: float = 1.0
 const MIN_ANIMATION_SPEED_MULTIPLIER_SCALE: float = 0.1
 const MAX_ANIMATION_SPEED_MULTIPLIER_SCALE: float = 10.0
 
+const DEFAULT_LANGUAGE: String = "en"
+## locale code : system locale-language prefixes that should map to it (checked in order).
+const LANGUAGE_LOCALE_PREFIXES: Dictionary = {
+	"chi": ["zh"],
+}
+
 
 func _ready() -> void:
 	load_settings()
+	TranslationServer.set_locale(get_language())
 
 
 var settings: Dictionary = {
@@ -60,6 +67,27 @@ func get_resolution() -> Vector2i:
 	if "resolution_y" not in settings.keys():
 		settings["resolution_y"] =  1080
 	return Vector2i(settings["resolution_x"],settings["resolution_y"])
+
+#region Language
+func get_language() -> String:
+	if "language" not in settings.keys():
+		settings["language"] = _determine_default_language()
+	return String(settings["language"])
+
+func set_language(locale_code: String) -> void:
+	settings["language"] = locale_code
+
+## First-boot default: match the system locale's language to an available
+## translation ("zh_CN", "zh_TW", etc. all fall back to "chi"), otherwise
+## fall back to DEFAULT_LANGUAGE.
+func _determine_default_language() -> String:
+	var system_language: String = OS.get_locale_language()
+	for locale_code in LANGUAGE_LOCALE_PREFIXES.keys():
+		for prefix in LANGUAGE_LOCALE_PREFIXES[locale_code]:
+			if system_language.begins_with(prefix):
+				return locale_code
+	return DEFAULT_LANGUAGE
+#endregion
 
 func store_last_used_save_slot(save_slot: int) -> void:
 	settings["last_used_save_slot"] = save_slot

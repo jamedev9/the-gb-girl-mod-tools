@@ -1,3 +1,4 @@
+@tool
 extends EventCardDefinition
 class_name ComboEventCardDefinition
 

@@ -1,3 +1,4 @@
+@tool
 extends TargetingRule
 class_name TargetSpecificOpponentId
 ### This class is called in code, not in resource creation.

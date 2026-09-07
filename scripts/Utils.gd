@@ -209,6 +209,55 @@ static func add_delta_to_displayed_integer_value(label: Node,delta: int) -> void
 	var new_value: int = current_value+delta
 	label.text = str(new_value)
 
+enum VersionComparison {BEFORE, SAME, AFTER}
+
+static func compare_versions(version_a: String, version_b: String) -> VersionComparison:
+	var parts_a: PackedStringArray = version_a.split(".")
+	var parts_b: PackedStringArray = version_b.split(".")
+	var part_count: int = max(parts_a.size(), parts_b.size())
+	for i in range(part_count):
+		var value_a: int = int(parts_a[i]) if i < parts_a.size() else 0
+		var value_b: int = int(parts_b[i]) if i < parts_b.size() else 0
+		if value_a < value_b:
+			return VersionComparison.BEFORE
+		if value_a > value_b:
+			return VersionComparison.AFTER
+	return VersionComparison.SAME
+
+## Loads a Texture2D from an @export_file-style path string, tolerating the ways such paths
+## go stale: a uid:// string Godot substituted in the editor (resolved via
+## ModExportable.resolve_to_res_path), a res:// project resource, or a plain filesystem path
+## (modded/user-provided images). Returns fallback and logs an error on any failure instead of
+## letting a bad path silently render nothing.
+static func load_texture_from_path(path: String, fallback: Texture2D = null) -> Texture2D:
+	if path == "":
+		return fallback
+
+	var resolved_path: String = ModExportable.resolve_to_res_path(path)
+	if resolved_path == "":
+		push_error("Could not resolve texture path: %s" % path)
+		return fallback
+
+	if resolved_path.begins_with("res://"):
+		if not ResourceLoader.exists(resolved_path):
+			push_error("Texture resource not found at path: %s" % resolved_path)
+			return fallback
+		var loaded_resource = load(resolved_path)
+		if loaded_resource is Texture2D:
+			return loaded_resource
+		push_error("Resource at path is not a Texture2D: %s" % resolved_path)
+		return fallback
+
+	# External filesystem path (modded/user-provided images)
+	if not FileAccess.file_exists(resolved_path):
+		push_error("Texture file not found at path: %s" % resolved_path)
+		return fallback
+	var image := Image.load_from_file(resolved_path)
+	if not image:
+		push_error("Failed to load image data at path: %s" % resolved_path)
+		return fallback
+	return ImageTexture.create_from_image(image)
+
 static func load_asset(path : String) -> Resource:
 	if OS.has_feature("export"):
 		# Check if file is .remap

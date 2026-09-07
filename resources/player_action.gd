@@ -21,12 +21,16 @@ class_name PlayerAction
 @export var looping_sound_category: SoundManager.LoopingCategory = SoundManager.LoopingCategory.NONE
 @export var start_sound_effect: SoundManager.SoundEffects = SoundManager.SoundEffects.NONE
 
-var active_on_opponent_with_id: String = "none"
-
 func get_action_name() -> String:
 	return tr("PLAYERACTION_"+action_id.to_upper()+"_ACTION_NAME")
 
+func get_log_text_when_started() -> String:
+	return tr("PLAYERACTION_"+action_id.to_upper()+"_LOG_TEXT_WHEN_STARTED")
+
 func get_translation_entries() -> Array[Dictionary]:
-	return [
+	var entries: Array[Dictionary] = [
 		{"key": "PLAYERACTION_"+action_id.to_upper()+"_ACTION_NAME", "text": action_name},
 	]
+	if log_text_when_started != "":
+		entries.append({"key": "PLAYERACTION_"+action_id.to_upper()+"_LOG_TEXT_WHEN_STARTED", "text": log_text_when_started})
+	return entries

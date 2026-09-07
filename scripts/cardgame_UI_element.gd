@@ -87,6 +87,23 @@ func get_meta_game() -> Node:
 func get_save_game_state() -> SaveGameState:
 	return get_meta_game().save_game_state
 
+### main_game/meta_game/save_game_state can each still be null this early - e.g. during the
+### scene transition into a loaded/new game, a card's picture gets set before this node's
+### @onready main_game (get_tree().get_current_scene()) resolves to the real scene, let alone
+### before a save exists. Checked explicitly here rather than in get_meta_game()/
+### get_save_game_state() themselves, since those are used elsewhere where main_game/meta_game
+### being unset would itself be a bug worth surfacing, not silently swallowing. Empty string
+### correctly means "no character scoping" to ImageOverrideManager.get_override_texture(), so
+### this is a real fallback, not just crash suppression.
+func get_selected_character_id() -> String:
+	if not main_game:
+		return ""
+	var meta_game: Node = main_game.meta_game
+	if not meta_game:
+		return ""
+	var save_game_state: SaveGameState = meta_game.save_game_state
+	return save_game_state.selected_character_id if save_game_state else ""
+
 ## --- INTERRUPTIBLE movement: use for UI-driven repositioning (hand reflow, hover shifts) ---
 ## Safe to interrupt because callers here fire-and-forget; nothing awaits completion,
 ## so kill()-without-finished never strands a coroutine. Kept node-bound + kill() 

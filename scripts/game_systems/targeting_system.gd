@@ -14,6 +14,30 @@ enum TargetingMode {
 	SOURCE_OF_EFFECT,
 }
 
+### Generic description support (see DescriptionBuilder). RULE_BASED has no template of its
+### own here - EffectAndTargetIntent.get_description_segments() builds its phrase from the
+### mode's targeting_rules instead, since "rule-based" alone says nothing useful on its own.
+static func get_targeting_mode_description_segments(mode: TargetingMode) -> Array[DescriptionSegment]:
+	### tr() is an instance method and this function is static (no `self`), so use
+	### TranslationServer.translate() directly - same underlying lookup, works from anywhere.
+	match mode:
+		TargetingMode.NO_TARGET:
+			### No CSV round-trip here on purpose: a translation key with an empty "en" value
+			### doesn't import as an empty string - Godot's translation lookup treats a missing
+			### entry as "not found" and tr()/TranslationServer.translate() falls back to
+			### returning the key literally, which showed up as the raw key string in generated
+			### descriptions. There's nothing to say for "no target" anyway, so just return [].
+			return []
+		TargetingMode.PLAYER:
+			return DescriptionBuilder.parse_template(TranslationServer.translate("TARGETINGMODE_PLAYER_TEMPLATE"))
+		TargetingMode.SINGLE_OPPONENT:
+			return DescriptionBuilder.parse_template(TranslationServer.translate("TARGETINGMODE_SINGLE_OPPONENT_TEMPLATE"))
+		TargetingMode.ALL_OPPONENTS:
+			return DescriptionBuilder.parse_template(TranslationServer.translate("TARGETINGMODE_ALL_OPPONENTS_TEMPLATE"))
+		TargetingMode.SOURCE_OF_EFFECT:
+			return DescriptionBuilder.parse_template(TranslationServer.translate("TARGETINGMODE_SOURCE_OF_EFFECT_TEMPLATE"))
+	return []
+
 
 static func get_targets_matching_rules(
 	game_state: GameState,
