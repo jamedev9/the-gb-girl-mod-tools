@@ -10,6 +10,12 @@ func create_intent_context(_game_state:GameState,_intent_context: EffectContext)
 	var context: EffectContext = EffectContext.new()
 	return context
 
+### Called on the context this intent just made when the status that sent it has more than 1 stack
+### (see MainCardgame._make_effect_intent_context_without_target()). An intent that can grow with stacks
+### (an opt-in export, e.g. DealDamageEffect.scale_with_stacks) scales its context here. Base: no scaling.
+func scale_context_by_stacks(_context: EffectContext, _stacks: int) -> void:
+	pass
+
 ### Generic description support (see DescriptionBuilder for the shared parsing logic this
 ### is built on). Overridden per subclass with that class's own template + substitutions.
 ### Base fallback just shows the class name, so any subclass that hasn't been given a real

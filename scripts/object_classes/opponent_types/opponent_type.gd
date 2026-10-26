@@ -6,7 +6,12 @@ class_name OpponentType
 @export var opponent_type_name: String
 @export var summonable_ally: bool = false
 
+### Internal note on what this type is supposed to look like (read off the prototype picture). Used to
+### choose appearances/hairstyles; never shown to the player, so it is not localized.
+@export_multiline var visual_description: String = ""
+
 @export var picture: Texture2D
+@export var appearance_variations: Array[OpponentAppearance] = []
 @export var video_particpant_tags: Array[VideoClip.ParticipantTags]
 @export var name_lists: Array[NameList] = []
 @export var card_color: Color = Color(0.286, 0.714, 1.0, 1.0)
@@ -36,6 +41,11 @@ func get_random_name() -> String:
 		available_names.append_array(list.names)
 	
 	return Utils.get_random_item(available_names)
+
+func get_random_appearance() -> OpponentAppearance:
+	if appearance_variations.is_empty():
+		return null
+	return appearance_variations.pick_random()
 
 func get_cock_picture() -> Texture2D:
 	var list_id: String = ""

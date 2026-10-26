@@ -37,7 +37,8 @@ var settings: Dictionary = {
 	"resolution_y": 1080,
 	"last_used_save_slot": 0,
 	"videos_in_logs": true,
-	"videos_on_opponents": true
+	"videos_on_opponents": true,
+	"zoom_on_opponent_videos": true
 
 }
 
@@ -89,17 +90,31 @@ func _determine_default_language() -> String:
 	return DEFAULT_LANGUAGE
 #endregion
 
-func store_last_used_save_slot(save_slot: int) -> void:
-	settings["last_used_save_slot"] = save_slot
-func get_last_used_save_slot() -> int:
+### Settings are shared between the two save formats, so each keeps its own key: the prototype's
+### slot number stays an int under "last_used_save_slot", Full Rework's unique id is a String
+### under "last_used_save_id".
+func store_last_used_save_id(save_id: String) -> void:
+	if SaveSystem.uses_unique_id_saves():
+		settings["last_used_save_id"] = save_id
+	else:
+		settings["last_used_save_slot"] = int(save_id)
+### The remembered save may have been deleted since - callers must check SaveSystem.save_exists()
+### before continuing into it. For unique-id saves, falls back to the newest save only if none was
+### ever remembered (may return "" if there are no saves at all).
+func get_last_used_save_id() -> String:
+	if SaveSystem.uses_unique_id_saves():
+		if "last_used_save_id" in settings.keys():
+			return str(settings["last_used_save_id"])
+		return SaveSystem.get_newest_save_id()
 	if "last_used_save_slot" not in settings.keys():
 		settings["last_used_save_slot"] = 0
-	return int(settings["last_used_save_slot"])
+	return str(int(settings["last_used_save_slot"]))
 
 func save_settings() -> void:
 	SaveSystem.save_settings(settings)
 
 func load_settings() -> void:
+	_mod_folders_snapshot_at_launch = _discover_mod_folder_names()
 	var loaded_settings: Dictionary = SaveSystem.load_settings()
 	if loaded_settings == {}:
 		return
@@ -117,6 +132,12 @@ func get_videos_on_opponents_setting() -> bool:
 		settings["videos_on_opponents"] = true
 		return true
 	return get_value_for_setting("videos_on_opponents")
+
+func get_zoom_on_opponent_videos_setting() -> bool:
+	if "zoom_on_opponent_videos" not in settings.keys():
+		settings["zoom_on_opponent_videos"] = true
+		return true
+	return get_value_for_setting("zoom_on_opponent_videos")
 
 #region Colorblind accessibility
 func get_colorblind_mode() -> bool:
@@ -167,13 +188,40 @@ static func active_negative_color() -> Color:
 #endregion
 
 #region Mod management
+const MODS_ROOT: String = "user://mods"
+
 ## Set once in load_settings() so the mods menu can tell whether the player
 ## has actually changed anything - the restart-to-apply button should stay
 ## disabled otherwise.
 var _enabled_mods_snapshot_at_launch: Dictionary = {}
 
+## Also set once in load_settings(). A mod folder that shows up (or disappears)
+## after launch needs a restart to take effect regardless of its enabled state -
+## AutoloadDatabase/VideoPlayerSystem only scan user://mods once at boot, so a
+## freshly-added folder is never actually loaded even though it defaults to
+## enabled=true, which get_enabled_mods() alone can't detect (it has no key for
+## a mod that's never been explicitly toggled).
+var _mod_folders_snapshot_at_launch: Array[String] = []
+
 func has_mod_enablement_changed_since_launch() -> bool:
+	if _discover_mod_folder_names() != _mod_folders_snapshot_at_launch:
+		return true
 	return get_enabled_mods() != _enabled_mods_snapshot_at_launch
+
+func _discover_mod_folder_names() -> Array[String]:
+	var folder_names: Array[String] = []
+	var dir: DirAccess = DirAccess.open(MODS_ROOT)
+	if not dir:
+		return folder_names
+	dir.list_dir_begin()
+	var item_name: String = dir.get_next()
+	while item_name != "":
+		if dir.current_is_dir() and not item_name.begins_with("."):
+			folder_names.append(item_name)
+		item_name = dir.get_next()
+	dir.list_dir_end()
+	folder_names.sort()
+	return folder_names
 
 func get_enabled_mods() -> Dictionary:
 	if "enabled_mods" not in settings.keys():

@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="Reward_GivePlayerEventCards" format=3 uid="uid://d7k62b4102y7"]
+
+[ext_resource type="Script" uid="uid://dh3v43mi65ub7" path="res://scripts/object_classes/meta_game_objects/reward_definition/reward_give_player_event_cards.gd" id="1_fbitu"]
+[ext_resource type="Texture2D" uid="uid://dh2vcmdaglojv" path="res://mod_export_data/images/dec04391f1ef2830f16e804c46397160.jpeg" id="1_p5i7x"]
+[ext_resource type="Script" uid="uid://bmw7b6wcns17f" path="res://scripts/object_classes/meta_game_objects/unlock_conditions/unlock_condition.gd" id="2_6y87o"]
+[ext_resource type="Script" uid="uid://dydunpix0msnc" path="res://scripts/object_classes/meta_game_objects/unlock_conditions/condition_win_by_turn_n.gd" id="4_w8ern"]
+
+[sub_resource type="Resource" id="Resource_p5i7x"]
+script = ExtResource("4_w8ern")
+encounter_id = "modded_encounter_one"
+turn_to_win_by = 5
+unlock_condition_id = "clearmoddedencountertogetmoddedcard"
+metadata/_custom_type_script = "uid://dydunpix0msnc"
+
+[resource]
+script = ExtResource("1_fbitu")
+cards_to_give = Dictionary[String, int]({
+"testmodcard_givepleasure": 3
+})
+reward_id = "giveplayer_testmodcard_givepleasure"
+reward_name = "Test Reward: Get Give Pleasure cards"
+reward_description = "Get three of the {CARD:testmodcard_givepleasure} cards."
+reward_picture = ExtResource("1_p5i7x")
+unlock_conditions = Array[ExtResource("2_6y87o")]([SubResource("Resource_p5i7x")])
+metadata/_custom_type_script = "uid://dh3v43mi65ub7"

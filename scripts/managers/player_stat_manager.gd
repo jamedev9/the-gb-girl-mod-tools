@@ -30,7 +30,12 @@ func _mutate_player_damage_value_(game_state: GameState, damage_delta: int) -> v
 		game_state.player["current_damage"] += damage_delta
 	elif game_state.player["current_damage"] + damage_delta <= 0:
 		game_state.player["current_damage"] = 0
-		
+
+	### Pleasure gained: remember how high it got (before an orgasm resets it), for unlock conditions.
+	if damage_delta > 0 and game_state.encounter_report:
+		game_state.encounter_report.record_player_pleasure(
+			game_state.player["current_damage"],game_state.player["damage_threshold"])
+
 	if game_state.player["current_damage"] >= game_state.player["damage_threshold"]:
 		emit_signal("player_damage_exceeds_threshold")
 
@@ -52,6 +57,15 @@ func _drain_player_energy_(game_state:GameState, energy_reduction: int) -> void:
 #endregion
 
 #region Public queries:
+### The orgasms a player's Pleasure has earned: x = how many, y = the Pleasure left once they are used up. Every full max is one
+### orgasm: 350 of 100 = 3 orgasms and 50 left, exactly the max = 1 and 0 left, under the max = 0 and nothing used up.
+static func get_pending_orgasms(pleasure: int, max_pleasure: int) -> Vector2i:
+	if max_pleasure <= 0 or pleasure < max_pleasure:
+		return Vector2i(0,pleasure)
+	var orgasms: int = 1 + int(floor(float(pleasure - max_pleasure) / float(max_pleasure)))
+	return Vector2i(orgasms,maxi(pleasure - orgasms * max_pleasure,0))
+
+
 static func get_energy_spent_this_round(game_state:GameState) -> int:
 	return game_state.player["energy_spent_this_round"]
 

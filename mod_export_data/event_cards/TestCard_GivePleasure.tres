@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="EventCardDefinition" format=3 uid="uid://rtanxueb08k1"]
+
+[ext_resource type="Script" uid="uid://xwmyihojt71y" path="res://scripts/object_classes/effect_and_target_intention/effect_and_target_intent.gd" id="1_eitnl"]
+[ext_resource type="Texture2D" uid="uid://dh2vcmdaglojv" path="res://mod_export_data/images/dec04391f1ef2830f16e804c46397160.jpeg" id="1_olcbq"]
+[ext_resource type="Script" uid="uid://dc0eu5yv1xe37" path="res://scripts/object_classes/event_cards/event_card_definition.gd" id="2_2ujx7"]
+[ext_resource type="Script" uid="uid://ceb2gtu6fty57" path="res://content_packs/00_real_porn_035_and_earlier/assets/audio/sound_effects/audio_streams_for_sound_effect.gd" id="3_bvcp5"]
+[ext_resource type="Script" uid="uid://dxi8cd7mq42h6" path="res://scripts/object_classes/event_cards/intent_effects/deal_damage_effect.gd" id="3_unaoo"]
+[ext_resource type="Script" uid="uid://c0l7fu6wab18q" path="res://scripts/object_classes/event_cards/targeting_rules/targeting_rule.gd" id="4_7twla"]
+
+[sub_resource type="Resource" id="Resource_2ujx7"]
+script = ExtResource("3_unaoo")
+damage = 20
+metadata/_custom_type_script = "uid://dxi8cd7mq42h6"
+
+[sub_resource type="Resource" id="Resource_eitnl"]
+script = ExtResource("1_eitnl")
+targeting_intent = 2
+effect_intent = SubResource("Resource_2ujx7")
+metadata/_custom_type_script = "uid://xwmyihojt71y"
+
+[resource]
+script = ExtResource("2_2ujx7")
+card_type_id = "testmodcard_givepleasure"
+card_name = "Please Him"
+description = "Give 20 Pleasure to target."
+card_picture = ExtResource("1_olcbq")
+category = 3
+energy_cost = 1
+effect_intents = Array[ExtResource("1_eitnl")]([SubResource("Resource_eitnl")])
+metadata/_custom_type_script = "uid://dc0eu5yv1xe37"

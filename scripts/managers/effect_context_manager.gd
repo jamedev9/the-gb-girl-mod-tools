@@ -23,10 +23,13 @@ signal change_opponent_action(intent_context: EffectContext)
 signal trigger_player_action(intent_context: EffectContext)
 signal restore_orgasms(intent_context: EffectContext)
 signal trigger_orgasms(intent_context: EffectContext)
+signal change_edging_threshold(intent_context: EffectContext)
+signal set_player_pleasure(intent_context: EffectContext)
+signal end_player_turn_requested(intent_context: EffectContext)
 signal remove_passive_from_target(intent_context: EffectContext)
 signal context_requests_spawning_opponent(intent_context: EffectContext)
 signal add_passives_to_target(intent_context: EffectContext)
-signal triggered_component_triggered(source: TargetEntity,intent_context: EffectContext,trigger_component: StatusTriggeredComponent,effect_def: EffectDefinition)
+signal triggered_component_triggered(source: TargetEntity,intent_context: EffectContext,trigger_component: StatusTriggeredComponent,effect_def: Resource)
 signal request_spawning_multiple_opponents(intent_context: EffectContext)
 signal new_opponent_just_spawned(intent_context: EffectContext)
 signal request_giving_player_unlock_rewards(intent_context: EffectContext)
@@ -76,12 +79,12 @@ func _trigger_effects(
 	source: TargetEntity,
 	is_context_a_trigger: bool) -> void:
 	if intent_context is TriggeredEffectContext:
-		return ### Triggers cannot cause other triggers
-	
+		return ### Made by a bookkeeping intent (give/remove passive, unlock rewards, trigger counter): never sets off reactions
+
 	if is_context_a_trigger:
 		#print("_trigger_effects was told that effect %s is triggered - quitting out."%effect_def.get_effect_id())
-		return ### Triggers cannot cause other triggers
-	
+		return ### Unused: nothing passes true, so reactions DO chain (see _handle_triggering_of_trigger_component())
+
 	for trigger_component in effect_def.get_triggered_components():
 		#print("Checking for trigger on component: %s"%trigger_component.trigger_component_id)
 		if not trigger_component.should_component_trigger(
@@ -98,14 +101,39 @@ func _trigger_effects(
 ### since _make_effect_intent_context_without_target() otherwise overwrites effect_origin/
 ### id_of_effect_origin to the triggered EffectIntent's own identity, losing which passive/status
 ### it came from - see Modifier_MultiplyDamageFromPassives for why that distinction matters.
+### A PlayerAction can own a component too (see _trigger_active_player_actions()), hence Resource:
+### nothing is stamped for it.
+### Emitted ONCE per trigger, not once per effect intent: _on_triggered_component_triggered() already loops
+### over all of trigger_component.effect_intents, so emitting per intent resolved every intent N times
+### (and recorded the trigger N times) for a component with N intents.
+###
+### Reactions chain on purpose: the contexts a reaction makes go through the observers again, so e.g. pleasure
+### from an opponent's retaliation can set off Zoned Out. What must not happen is a reaction setting itself off
+### again from inside its own resolution (an action that triggers itself whenever it is triggered), which would
+### loop forever. So the reactions currently being resolved are kept on a stack, keyed by owner + component
+### object (trigger_component_id is empty on a lot of content), and a reaction already on it is skipped.
+### Resolution is synchronous, so the stack is exactly "the reactions we are currently inside". The size
+### limit catches a chain that never repeats the same reaction but still never ends.
+var _reactions_being_resolved: Array[String] = []
+const MAX_NESTED_REACTIONS: int = 10
+
 func _handle_triggering_of_trigger_component(
 	source: TargetEntity,
 	intent_context: EffectContext,
 	trigger_component: StatusTriggeredComponent,
-	effect_def: EffectDefinition) -> void:
-	for effect_and_intent in trigger_component.effect_intents:
-		#print("Sending signal to main game to handle component: %s"%trigger_component.trigger_component_id)
-		emit_signal("triggered_component_triggered",source,intent_context,trigger_component,effect_def)
+	effect_def: Resource) -> void:
+	var reaction_label: String = "'%s' (owner: %s)" % [trigger_component.trigger_component_id, source.get_tracker_key()]
+	var reaction_key: String = "%s:%d" % [source.get_tracker_key(), trigger_component.get_instance_id()]
+	if reaction_key in _reactions_being_resolved:
+		push_warning("Reaction %s tried to set itself off while it was resolving - skipped." % reaction_label)
+		return
+	if _reactions_being_resolved.size() >= MAX_NESTED_REACTIONS:
+		push_error("More than %d reactions nested inside each other (at %s) - skipped." % [MAX_NESTED_REACTIONS, reaction_label])
+		return
+	_reactions_being_resolved.append(reaction_key)
+	#print("Sending signal to main game to handle component: %s"%trigger_component.trigger_component_id)
+	emit_signal("triggered_component_triggered",source,intent_context,trigger_component,effect_def)
+	_reactions_being_resolved.pop_back()
 
 
 func _modify_intent_context_with_passive_and_status_effects(intent_context: EffectContext,is_context_a_trigger: bool) -> void:
@@ -141,16 +169,27 @@ func _modify_context_with_entity_effects(
 		if effect_def.get_script() != StatusEffectDefinition and effect_def.get_script() != PassiveEffectDefinition:
 			push_error("Unknown effect definition type: %s" % effect_def)
 		intent_context.damage_phase = status_damage_phase
+		intent_context.modifier_effect_stacks = _get_stacks_of_effect_on_entity(entity, effect_def)
 
 		_modify_effect_context_based_on_effect(intent_context, effect_def)
 		#_trigger_effects(intent_context, effect_def, entity,is_context_a_trigger)
+	intent_context.modifier_effect_stacks = 1 ### Scratch value: only meaningful while a status's own modifiers run.
+
+### Passives don't stack, so they always count as 1.
+func _get_stacks_of_effect_on_entity(entity: TargetEntity, effect_def: EffectDefinition) -> int:
+	if effect_def is StatusEffectDefinition:
+		return maxi(entity.get_status_stacks(effect_def.status_id), 1)
+	return 1
 
 func _get_all_effect_definitions_for_entity(entity: TargetEntity) -> Array[EffectDefinition]:
 	if not entity:
 		return []
 	var effect_defs: Array[EffectDefinition] = []
 	for passive_id in entity.get_passive_effects():
-		effect_defs.append(AutoloadDatabase.passive_effect_definitions[passive_id])
+		var passive_def: PassiveEffectDefinition = AutoloadDatabase.get_passive_effect_def(passive_id)
+		if passive_def == null: ### Not in the game (e.g. a disabled mod's passive); the id stays on the entity.
+			continue
+		effect_defs.append(passive_def)
 	for status_id in entity.get_status_effects().keys():
 		effect_defs.append(AutoloadDatabase.status_effects_by_id[status_id])
 	return effect_defs
@@ -159,7 +198,7 @@ func _handle_observer_triggers(reactive_context: EffectContext) -> void:
 	### Pass the intent context through the triggered effects on player and opponents.
 	#print("Checking reactive triggers")
 	if reactive_context is TriggeredEffectContext:
-		return ### Triggers cannot cause other triggers
+		return ### Made by a bookkeeping intent (give/remove passive, unlock rewards, trigger counter): never sets off reactions
 	var targets_to_check: Array[TargetEntity] = []
 	targets_to_check.append(PlayerEntity.new(main_game.game_state))
 	for opponent_id in main_game.game_state.get_currently_active_opponents():
@@ -170,6 +209,31 @@ func _handle_observer_triggers(reactive_context: EffectContext) -> void:
 		var effect_defs: Array[EffectDefinition] = _get_all_effect_definitions_for_entity(entity)
 		for effect_def in effect_defs:
 			_trigger_effects(reactive_context,effect_def,entity,false)
+
+	_trigger_active_player_actions(reactive_context)
+
+### Player Actions react like passives/statuses do (their triggered_components), but only while they are
+### active, i.e. assigned to an opponent. The owner of the trigger is the player: it is the player's
+### Action, and ApplyEffectOfPlayerAction (how an action triggers itself) puts the player as source anyway.
+func _trigger_active_player_actions(reactive_context: EffectContext) -> void:
+	var game_state: GameState = main_game.game_state
+	if game_state.actions_assigned_to_opponents.is_empty():
+		return
+	var save_game_state: SaveGameState = main_game.meta_game.save_game_state
+	var player_entity: PlayerEntity = PlayerEntity.new(game_state)
+	### keys() is a copy: a reaction can defeat an opponent and clear its action while this loop runs.
+	for action_id in game_state.actions_assigned_to_opponents.keys():
+		### The save's version of the action, like MainCardgame._resolve_effects_of_player_action().
+		var action: PlayerAction = save_game_state.get_effective_player_action(action_id) if save_game_state \
+			else AutoloadDatabase.get_player_action_by_id(action_id)
+		if not action:
+			continue
+		for trigger_component in action.triggered_components:
+			if game_state.get_opponent_with_action(action_id) == "":
+				break ### An earlier reaction cleared this action.
+			if not trigger_component.should_component_trigger(reactive_context,game_state,save_game_state,player_entity):
+				continue
+			_handle_triggering_of_trigger_component(player_entity,reactive_context,trigger_component,action)
 
 
 #endregion
@@ -325,6 +389,12 @@ func _resolve_intent_context(intent_context:EffectContext) -> void:
 		emit_signal("restore_orgasms",intent_context)
 	if intent_context.orgasms_to_trigger:
 		emit_signal("trigger_orgasms",intent_context)
+	if not is_zero_approx(intent_context.edging_threshold_change):
+		emit_signal("change_edging_threshold",intent_context)
+	if intent_context.set_player_pleasure_to >= 0:
+		emit_signal("set_player_pleasure",intent_context)
+	if intent_context.end_player_turn:
+		emit_signal("end_player_turn_requested",intent_context)
 	if intent_context.passive_to_remove_from_target:
 		#print("Sending intent to remove passive from target")
 		emit_signal("remove_passive_from_target",intent_context)

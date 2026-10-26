@@ -1,0 +1,29 @@
+{
+	"_class": "EncounterMap",
+	"map_id": "testmodmap_donotcopyplease",
+	"map_name": "Test Mod Map",
+	"nodes": [
+		{
+			"encounter_id": "modded_encounter_one",
+			"line_requirement": "ALL",
+			"position": [
+				-55.0,
+				90.0
+			],
+			"unlock_conditions": [],
+			"unlocked_by": []
+		},
+		{
+			"encounter_id": "modded_encounter_two",
+			"line_requirement": "ALL",
+			"position": [
+				165.0,
+				90.0
+			],
+			"unlock_conditions": [],
+			"unlocked_by": [
+				"modded_encounter_one"
+			]
+		}
+	]
+}

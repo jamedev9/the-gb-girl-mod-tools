@@ -4,12 +4,14 @@ class_name ApplyEffectOfPlayerAction
 
 @export var player_action_id: String
 
+### This context never resolves anything itself - EffectContextManager._resolve_intent_context()
+### intercepts effect_origin is ApplyEffectOfPlayerAction and hands off to
+### MainCardgame._resolve_effects_of_player_action(), which resolves the action's own effect_intents.
+### It still exists (and flows through MODIFY/VERIFY/observer triggers) as the marker that "this
+### action was triggered" - see TriggerCondition_OnPlayerActionsTriggered - so it just needs a source.
 func create_intent_context(game_state:GameState,_intent_context: EffectContext) -> EffectContext:
-	var context: EffectContext = EffectContext.new_player_action_damage_intent(
-		game_state,player_action_id,null
-	)
+	var context: EffectContext = EffectContext.new()
 	context.source = PlayerEntity.new(game_state)
-
 	return context
 
 func get_description_segments() -> Array[DescriptionSegment]:

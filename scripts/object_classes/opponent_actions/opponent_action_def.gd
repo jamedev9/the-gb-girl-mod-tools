@@ -37,11 +37,17 @@ func get_translation_entries() -> Array[Dictionary]:
 func get_description_segments() -> Array[DescriptionSegment]:
 	var effect_segments: Array[DescriptionSegment] = EffectAndTargetIntent.describe_all(effect_intents)
 	if effect_segments.is_empty():
-		return [DescriptionSegment.text_segment(get_action_description())]
+		return get_hand_written_description_segments()
 	if trigger_conditions.is_empty():
 		return effect_segments
 	var when_segments: Array[DescriptionSegment] = TriggerCondition.describe_conditions(trigger_conditions, only_require_one_condition)
 	return DescriptionBuilder.describe_when_then(when_segments, effect_segments)
+
+### The hand-written description as segments: its {KEYWORD} and {STATUS:id}-style tokens become hover links (see
+### DescriptionBuilder.parse_template() and DescriptionTerms). Show this with DescriptionLabel.show_segments(), never the raw string.
+func get_hand_written_description_segments() -> Array[DescriptionSegment]:
+	return DescriptionBuilder.parse_template(
+		get_action_description(), {}, DescriptionTerms.card_permanence_hints(effect_intents))
 
 func get_video_tags():
 	return video_tags

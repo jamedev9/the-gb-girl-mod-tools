@@ -55,7 +55,10 @@ func get_description_segments() -> Array[DescriptionSegment]:
 
 func _describe_card_to_add(entry: CardsToAddIntent, plain_key: String, with_duration_key: String) -> Array[DescriptionSegment]:
 	var card_def: EventCardDefinition = AutoloadDatabase.event_cards_by_id.get(entry.event_card_id, null)
-	var card_name: String = card_def.get_card_name() if card_def else "?"
+	### A link whose tooltip shows the card the way this effect hands it out (CardsToAddIntent.permanence).
+	var card_name: DescriptionSegment = DescriptionSegment.text_segment("?")
+	if card_def:
+		card_name = DescriptionTerms.event_card_term(card_def, entry.permanence)
 	if entry.turns_until_discard >= 0:
 		return DescriptionBuilder.parse_template(tr(with_duration_key), {
 			"count": str(entry.number_to_add), "card_name": card_name,

@@ -1,0 +1,25 @@
+{
+	"_class": "EncounterDefinition",
+	"branch_index": 0,
+	"encounter_description": "This is another test encounter.",
+	"encounter_display_name": "Modded Encounter Two",
+	"encounter_id": "modded_encounter_two",
+	"encounter_music": "",
+	"encounter_picture": "actor-carolina-sweets-540785_large-489440100.jpg",
+	"event_cards_starting_hand": {},
+	"fixed_spawn_order": {},
+	"forbid_all_summons": false,
+	"forbidden_ally_summons": [],
+	"map_region_id": "testregion_one",
+	"max_simultaneous_opponents": 0,
+	"min_simultaneous_opponents": 3,
+	"music_track_id": "lofi_study",
+	"opponents_in_encounter_reserves": {
+		"playboy": 1,
+		"pornstar_black": 1,
+		"pornstar_white": 1
+	},
+	"rewards_granted_by_clearing": [],
+	"temporary_player_passives": [],
+	"unlock_conditions": []
+}

@@ -1,29 +1,61 @@
 extends Resource
 class_name SaveGameState
 
+### Emitted when something that makes the player stronger changes - a stat reward (increase_player_stats()) or
+### an upgrade of a player action's effects or triggers (set_progressed_effect_intents(),
+### set_progressed_triggered_components()) - so things derived from the
+### player's strength, currently the encounter difficulty estimate, refresh right then instead of polling.
+### reason says what changed: "stats_reward" or "action_progression".
+signal player_power_changed(reason: String)
+
 var _default_game_version: String = "0.0.0"
 var game_version: String = _default_game_version
 
 
 
-var PLAYER_STARTER_PASSIVES: Array = [
+var PROTOTYPE_STARTER_PASSIVES: Array = [
 	"birth_control",
 	"fertile"
 ]
 
-var DEFAULT_STARTER_DECK: Dictionary = {
+### Full Rework mode takes the list from its ContentSet instead (so a passive that isn't carried
+### over, like "fertile" and the pregnancy chain behind it, is never handed to a new player).
+var PLAYER_STARTER_PASSIVES: Array = _get_starter_passive_ids()
+
+func _get_starter_passive_ids() -> Array:
+	if PlayModeSettings.current != PlayModeSettings.Mode.FULL_REWORK:
+		return PROTOTYPE_STARTER_PASSIVES.duplicate(true)
+	var content_set: ContentSet = AutoloadDatabase.get_active_content_set()
+	var starter_passive_ids: Array = [] ### Plain Array, not the set's Array[String] - typed arrays break save JSON round-trips.
+	if content_set:
+		starter_passive_ids.append_array(content_set.starter_passive_ids)
+	return starter_passive_ids
+
+var PROTOTYPE_STARTER_DECK: Dictionary = {
 	"apply_weak": 3,
 	"gain_ironskin": 1,
 	"apply_target_guide": 3,
 	"apply_burn": 3,
-	#"faithless_looting": 2,
 	"discard_two_draw_two": 2,
-	#"drink_break": 2,
 	"take_a_breather": 2,
 	"draw_three":2,
 	"kiss_neck": 2,
 	"thats_so_good": 2
 }
+
+### Full Rework mode takes its starter deck from the ContentSet, so it can be changed without
+### touching the prototype's.
+var DEFAULT_STARTER_DECK: Dictionary = _get_starter_deck()
+
+func _get_starter_deck() -> Dictionary:
+	if PlayModeSettings.current != PlayModeSettings.Mode.FULL_REWORK:
+		return PROTOTYPE_STARTER_DECK.duplicate(true)
+	var content_set: ContentSet = AutoloadDatabase.get_active_content_set()
+	var starter_deck: Dictionary = {} ### Plain Dictionary, not the set's Dictionary[String,int] - typed containers break save JSON round-trips.
+	if content_set:
+		for card_id in content_set.starter_deck.keys():
+			starter_deck[card_id] = content_set.starter_deck[card_id]
+	return starter_deck
 
 var DEFAULT_CURRENT_BUILD: Dictionary ={
 	"event_cards_deck": DEFAULT_STARTER_DECK.duplicate(true),
@@ -39,10 +71,13 @@ func _retroactively_add_missing_features_() -> void:
 	_add_default_passives_()
 	_add_default_passives_to_all_builds()
 	_remove_virgin_passive_if_vaginal_is_used()
+	_remove_unowned_passives_from_saved_builds()
 	_convert_deck_presets_to_build_presets()
 	_migrate_ally_cards_out_of_decks()
 	unlock_action_rewards_already_achieved()
+	_restore_lost_action_progress()
 	_apply_analqueen_max_pleasure_buff()
+	_add_missing_edging_threshold()
 
 var retroactive_migrations_applied: Dictionary = {} ### migration ID (String) -> true, once applied
 
@@ -66,6 +101,12 @@ func _apply_analqueen_max_pleasure_buff() -> void:
 	player["damage_threshold"] += 20
 	_mark_migration_applied(migration_id)
 
+func _add_missing_edging_threshold() -> void:
+	### Saves from before Edging have no edging_threshold in their player stats (from_dict() takes the saved
+	### dictionary as it is). get_edging_threshold() already falls back to the default; this writes it into the save.
+	if not player.has("edging_threshold"):
+		player["edging_threshold"] = EdgingRules.DEFAULT_THRESHOLD
+
 func _migrate_ally_cards_out_of_decks() -> void:
 	_strip_ally_cards_from_deck(current_build["event_cards_deck"])
 	for build_name in saved_builds.keys():
@@ -87,7 +128,21 @@ func _add_default_passives_() -> void:
 func _add_default_passives_to_all_builds() -> void:
 	for build_name in get_saved_build_presets().keys():
 		for passive_id in PLAYER_STARTER_PASSIVES.duplicate(true):
+			var passive_def: PassiveEffectDefinition = AutoloadDatabase.get_passive_effect_def(passive_id)
+			if passive_def != null and passive_def.toggleable_by_player:
+				continue ### The build's own choice wins - only non-toggleable passives are back-filled (same rule as give_player_passive).
 			add_passive_to_build(build_name,passive_id)
+
+func _remove_unowned_passives_from_saved_builds() -> void:
+	### A passive the player no longer owns (e.g. pregnant_1 after giving birth) must not linger in saved builds -
+	### selecting such a build would put it back in the active build.
+	for build_name in get_saved_build_presets().keys():
+		var build: Dictionary = get_saved_build_presets()[build_name]
+		if "build_passives" not in build.keys():
+			continue
+		for passive_id in build["build_passives"].duplicate():
+			if passive_id not in player_owned_passives:
+				build["build_passives"].erase(passive_id)
 
 func add_passive_to_build(build_name: String,passive_id: String) -> void:
 	var build: Dictionary = get_saved_build_presets()[build_name]
@@ -127,7 +182,7 @@ func _convert_deck_presets_to_build_presets() -> void:
 			"summon_ally_card": "",
 			"reward_cards_from_actions": {},
 			"current_orgasm_card_id": "orgasm_muscle_spasm",
-			"build_passives": []
+			"build_passives": PLAYER_STARTER_PASSIVES.duplicate(true)
 		})
 
 func unlock_action_rewards_already_achieved() -> void:
@@ -206,6 +261,10 @@ static func get_default_min_deck_size() -> int:
 	var empty_save_game = SaveGameState.new()
 	return empty_save_game._default_min_deck_size
 
+var auto_add_new_cards_to_deck: bool = true
+func set_auto_add_new_cards_to_deck(enabled: bool) -> void:
+	auto_add_new_cards_to_deck = enabled
+
 func get_owned_event_cards() -> Dictionary:
 	return owned_event_cards
 
@@ -261,6 +320,8 @@ func give_player_cards(cards_to_give: Dictionary[String,int]) -> void:
 		else:
 			owned_event_cards[card_id] += cards_to_give[card_id]
 		
+		if not auto_add_new_cards_to_deck:
+			continue
 		if card_id not in get_current_deck():
 			get_current_deck()[card_id] = cards_to_give[card_id]
 		else:
@@ -292,6 +353,7 @@ var _default_player: Dictionary = {
 	"hp": 2,
 	"damage_threshold": 100,
 	"max_energy":10,
+	"edging_threshold": EdgingRules.DEFAULT_THRESHOLD, # share of max pleasure (0..1), see EdgingRules
 	"passive_effects": PLAYER_STARTER_PASSIVES.duplicate(true) # list of passive ID's
 }
 func get_default_player_stat(stat: String):
@@ -306,6 +368,15 @@ func increase_player_stats(stats_delta: Dictionary[String, int]) -> void:
 	player["hp"] += stats_delta["hp_increase"]
 	player["damage_threshold"] += stats_delta["damage_threshold_increase"]
 	player["max_energy"] += stats_delta["max_energy_increase"]
+	player_power_changed.emit("stats_reward")
+
+### The permanent edging threshold, as a share of max pleasure (0..1, see EdgingRules). This is what rewards change;
+### an effect that only lowers it for one encounter edits the encounter's GameState copy instead (GameState.set_edging_threshold()).
+func get_edging_threshold() -> float:
+	return EdgingRules.clamp_threshold(float(player.get("edging_threshold", EdgingRules.DEFAULT_THRESHOLD)))
+
+func set_edging_threshold(new_threshold: float) -> void:
+	player["edging_threshold"] = EdgingRules.clamp_threshold(new_threshold)
 
 #endregion
 #region Player passives:
@@ -337,11 +408,18 @@ func add_passive_to_all_saved_builds(passive_id: String) -> void:
 	for build_name in get_saved_build_presets().keys():
 		add_passive_to_build(build_name,passive_id)
 
+func remove_passive_from_all_saved_builds(passive_id: String) -> void:
+	for build_name in get_saved_build_presets().keys():
+		var build: Dictionary = get_saved_build_presets()[build_name]
+		if "build_passives" in build.keys():
+			build["build_passives"].erase(passive_id)
+
 func remove_passive_from_player(passive_id: String) -> void:
 	if passive_id in current_build["build_passives"]:
 		current_build["build_passives"].erase(passive_id)
 	if passive_id in player_owned_passives:
 		player_owned_passives.erase(passive_id)
+	remove_passive_from_all_saved_builds(passive_id)
 
 func change_state_of_player_passive(passive_id: String, new_state: bool) -> void:
 	if not player_owns_passive(passive_id):
@@ -354,8 +432,12 @@ func change_state_of_player_passive(passive_id: String, new_state: bool) -> void
 		if passive_id in current_build["build_passives"]:
 			current_build["build_passives"].erase(passive_id)
 	
+### A passive that isn't in the game (e.g. it came from a mod that is now disabled) counts as hidden,
+### so the displays skip it. Its id stays in the save, so re-enabling the mod brings it back.
 func passive_is_hidden_from_player(passive_id: String) -> bool:
 	var passive_def: PassiveEffectDefinition = AutoloadDatabase.get_passive_effect_def(passive_id)
+	if passive_def == null:
+		return true
 	return passive_def.hidden_from_player
 
 func player_owns_passive(passive_id: String) -> bool:
@@ -386,6 +468,191 @@ func add_new_player_action(action_id: String) -> void:
 		owned_player_actions.append(action_id)
 	if action_id not in currently_used_player_actions:
 		currently_used_player_actions.append(action_id)
+
+#region Progressed player actions:
+### Per-save progression of a PlayerAction's effects (Phase C of the player-action rework).
+### action_id -> Array of EffectAndTargetIntent.to_json_dict() dicts, i.e. the action's FULL
+### effect_intents list as progressed - a snapshot of everything the action does, not a delta. Only
+### the effects are saved (not the whole PlayerAction: its Texture2D/ArtPart/reward-card fields
+### aren't serializable by the generic serializer and never change per save anyway).
+###
+### An action with no entry here is simply "unprogressed" and follows its disk template, so balance
+### patches reach it; once an entry exists it's frozen against changes to the template's effects.
+### Untyped on purpose (see CLAUDE.md's typed-array-vs-JSON rule); stored as raw dicts and rebuilt
+### lazily because rebuilding needs AutoloadDatabase loaded (ApplyStatusEffect resolves its status
+### by id) and a save can be loaded before that finishes.
+var player_action_progress: Dictionary = {}
+
+### The same for a PlayerAction's triggered_components (its reactions while active): action_id -> Array of
+### StatusTriggeredComponent.to_json_dict() dicts, the action's FULL list as progressed. Kept apart from
+### player_action_progress on purpose: effects and triggers progress independently (an action with only one
+### of the two progressed still follows its disk template for the other), and saves written before actions
+### had triggers need no migration. Same rules otherwise: no entry = follows the template, untyped, rebuilt lazily.
+var player_action_trigger_progress: Dictionary = {}
+
+### action_id -> PlayerAction rebuilt from player_action_progress / player_action_trigger_progress. Not saved.
+var _effective_player_action_cache: Dictionary = {}
+
+### The PlayerAction as THIS save sees it: the disk template, or - if its effects or triggers have been
+### progressed - a copy of it with the saved effect_intents / triggered_components swapped in. Use this (not
+### AutoloadDatabase.get_player_action_by_id) anywhere the action's EFFECTS or TRIGGERS matter; static fields
+### (name, costs, art, sounds, reward cards) are identical either way. Still a PlayerAction with the
+### same action_id, so everything keyed on `effect_origin is PlayerAction` keeps working.
+func get_effective_player_action(action_id: String) -> PlayerAction:
+	var template: PlayerAction = AutoloadDatabase.get_player_action_by_id(action_id)
+	if not template or not has_progressed_player_action(action_id):
+		return template
+	if _effective_player_action_cache.has(action_id):
+		return _effective_player_action_cache[action_id]
+	var effective: PlayerAction = template.duplicate() as PlayerAction
+	if player_action_progress.has(action_id):
+		var saved_intents: Array = player_action_progress[action_id]
+		var intents: Array[EffectAndTargetIntent] = []
+		for intent_dict in saved_intents:
+			if intent_dict is Dictionary:
+				var intent: ModExportable = ModdableResourceRegistry.instantiate(intent_dict)
+				if intent is EffectAndTargetIntent:
+					intents.append(intent)
+		if intents.size() != saved_intents.size():
+			### Never hand out a half-rebuilt action - an intent silently missing changes what the action does.
+			push_warning("Could not rebuild all saved effects for player action '%s' - using its template instead." % action_id)
+			return template
+		effective.effect_intents = intents
+	if player_action_trigger_progress.has(action_id):
+		var saved_components: Array = player_action_trigger_progress[action_id]
+		var components: Array[StatusTriggeredComponent] = []
+		for component_dict in saved_components:
+			if component_dict is Dictionary:
+				var component: ModExportable = ModdableResourceRegistry.instantiate(component_dict)
+				if component is StatusTriggeredComponent:
+					components.append(component)
+		if components.size() != saved_components.size():
+			### Same reason as above - a trigger silently missing changes when the action fires.
+			push_warning("Could not rebuild all saved triggers for player action '%s' - using its template instead." % action_id)
+			return template
+		effective.triggered_components = components
+	_effective_player_action_cache[action_id] = effective
+	return effective
+
+func has_progressed_player_action(action_id: String) -> bool:
+	return player_action_progress.has(action_id) or player_action_trigger_progress.has(action_id)
+
+### Deep copies of the action's current effects (progressed or template) that are safe to edit -
+### never edit get_effective_player_action()'s own intents, they're shared with the template/cache.
+### Edit the copies, then hand them to set_progressed_effect_intents().
+func get_effect_intents_copy_for_progression(action_id: String) -> Array[EffectAndTargetIntent]:
+	var copies: Array[EffectAndTargetIntent] = []
+	var action: PlayerAction = get_effective_player_action(action_id)
+	if not action:
+		return copies
+	for intent in action.effect_intents:
+		var copy: ModExportable = ModdableResourceRegistry.instantiate(intent.to_json_dict())
+		if copy is EffectAndTargetIntent:
+			copies.append(copy)
+	return copies
+
+### announce_change = false lets a reward that progresses several actions at once announce the change once,
+### when it is done (announce_player_power_changed()), instead of once per action.
+func set_progressed_effect_intents(action_id: String, intents: Array[EffectAndTargetIntent], announce_change: bool = true) -> void:
+	if action_id not in AutoloadDatabase.player_actions_by_id.keys():
+		push_error("Tried to progress non-existing player action: %s"%action_id)
+		return
+	var serialized: Array = []
+	for intent in intents:
+		serialized.append(intent.to_json_dict())
+	player_action_progress[action_id] = serialized
+	_effective_player_action_cache.erase(action_id)
+	if announce_change:
+		player_power_changed.emit("action_progression")
+
+### Deep copies of the action's current triggers (progressed or template) that are safe to edit - the
+### triggered_components counterpart of get_effect_intents_copy_for_progression(), same rules.
+func get_triggered_components_copy_for_progression(action_id: String) -> Array[StatusTriggeredComponent]:
+	var copies: Array[StatusTriggeredComponent] = []
+	var action: PlayerAction = get_effective_player_action(action_id)
+	if not action:
+		return copies
+	for component in action.triggered_components:
+		var copy: ModExportable = ModdableResourceRegistry.instantiate(component.to_json_dict())
+		if copy is StatusTriggeredComponent:
+			copies.append(copy)
+	return copies
+
+### Stores `components` as the action's whole list of triggers for this save (frozen against changes to the
+### template's triggers from then on), leaving its effects exactly as they were. See
+### set_progressed_effect_intents() for announce_change.
+func set_progressed_triggered_components(action_id: String, components: Array[StatusTriggeredComponent], announce_change: bool = true) -> void:
+	if action_id not in AutoloadDatabase.player_actions_by_id.keys():
+		push_error("Tried to progress non-existing player action: %s"%action_id)
+		return
+	var serialized: Array = []
+	for component in components:
+		serialized.append(component.to_json_dict())
+	player_action_trigger_progress[action_id] = serialized
+	_effective_player_action_cache.erase(action_id)
+	if announce_change:
+		player_power_changed.emit("action_progression")
+
+### Undoes both kinds of progression: the action goes back to its disk template.
+func reset_player_action_progress(action_id: String) -> void:
+	player_action_progress.erase(action_id)
+	player_action_trigger_progress.erase(action_id)
+	_effective_player_action_cache.erase(action_id)
+	player_power_changed.emit("action_progression")
+
+func announce_player_power_changed(reason: String) -> void:
+	player_power_changed.emit(reason)
+
+#region Restoring action upgrades an older build threw away:
+### reward id -> how many times that reward's effect on the player actions (RewardDefinition.changes_player_action_progress())
+### has been applied to this save's player_action_progress / player_action_trigger_progress.
+### Why it exists: builds from before player_action_progress existed (0.4.2 and older) write only the save keys they know, so
+### loading a save there and letting it re-save drops the upgrades - while rewards_unlocked (a key they do know) still says the
+### rewards were earned, so they can't be earned again. This ledger is dropped by those builds together with the upgrades, so on
+### load whatever rewards_unlocked holds beyond the ledger is applied again (_restore_lost_action_progress()).
+### Untyped on purpose (JSON round trip). Anything that undoes progression for good (like reset_player_action_progress()) must
+### take the matching entries out of it too, or the undone upgrade is not rebuilt.
+var action_progress_rewards_applied: Dictionary = {}
+
+### False when the file this save was loaded from had no action_progress_rewards_applied key at all (see from_dict()).
+var _action_progress_ledger_was_saved: bool = true
+
+### Applies the reward to this save and notes it in the ledger when it changes the player actions. Every reward the game
+### hands out goes through here instead of calling reward_def.apply_reward() itself, or its upgrade can't be rebuilt.
+func apply_reward_and_record(reward_def: RewardDefinition) -> void:
+	reward_def.apply_reward(self)
+	if reward_def.changes_player_action_progress():
+		increase_value_in_dictionary(action_progress_rewards_applied, reward_def.reward_id, 1)
+
+### Part of the load migrations. Brings player_action_progress back in line with the rewards the save says were earned.
+func _restore_lost_action_progress() -> void:
+	if not _action_progress_ledger_was_saved:
+		_action_progress_ledger_was_saved = true
+		if not player_action_progress.is_empty() or not player_action_trigger_progress.is_empty():
+			### Written by 0.4.3 / 0.4.4: they keep the upgrades but never knew the ledger, so every reward earned so far
+			### is already in them. Replaying would double them.
+			_note_all_earned_action_progress_rewards_as_applied()
+			return
+	var nr_of_rewards_reapplied: int = 0
+	for reward_id in rewards_unlocked.keys():
+		var reward_def: RewardDefinition = AutoloadDatabase.get_unlock_reward_definition(reward_id)
+		if reward_def == null or not reward_def.changes_player_action_progress():
+			continue
+		var nr_of_times_missing: int = int(rewards_unlocked[reward_id]) - int(action_progress_rewards_applied.get(reward_id, 0))
+		for _repeat in range(nr_of_times_missing):
+			apply_reward_and_record(reward_def)
+			nr_of_rewards_reapplied += 1
+	if nr_of_rewards_reapplied > 0:
+		print("Restored %d action upgrade reward(s) that an older version of the game had dropped from this save." % nr_of_rewards_reapplied)
+
+func _note_all_earned_action_progress_rewards_as_applied() -> void:
+	for reward_id in rewards_unlocked.keys():
+		var reward_def: RewardDefinition = AutoloadDatabase.get_unlock_reward_definition(reward_id)
+		if reward_def != null and reward_def.changes_player_action_progress():
+			action_progress_rewards_applied[reward_id] = int(rewards_unlocked[reward_id])
+#endregion
+#endregion
+
 var reward_cards_unlocked_for_actions: Dictionary #ActionID, array of EventCardIDs
 var reward_cards_from_actions: Dictionary #ActionID, EventCardID
 func unlock_reward_card_for_action(reward_card_id: String, action_id:String) -> void:
@@ -470,6 +737,22 @@ func add_reward_id_to_unlock_rewards(reward_id: String) -> void:
 func is_reward_unlocked(reward_id: String) -> bool:
 	#return reward_id in unlocked_rewards
 	return reward_id in rewards_unlocked.keys()
+
+### A reward's run conditions (UnlockCondition.is_judged_on_a_single_run()) can only be met at the moment a run ends, while the rest
+### of the reward (clear 5 Office encounters, ...) may only be met earlier or later. So once ONE run has met all of a reward's run
+### conditions together, that is remembered here and the reward only waits for its other conditions (RewardDefinition.are_all_conditions_met()).
+### Kept in condition_tracking under "run_conditions_met:<reward id>": a free-form dictionary every older build writes back untouched,
+### unlike a new save key (see action_progress_rewards_applied). Nothing is credited for runs made before this existed.
+const RUN_CONDITIONS_MET_KEY_PREFIX: String = "run_conditions_met:"
+func remember_run_conditions_met(reward_id: String) -> void:
+	if reward_id == "":
+		return
+	condition_tracking[RUN_CONDITIONS_MET_KEY_PREFIX + reward_id] = true
+func has_met_run_conditions(reward_id: String) -> bool:
+	if reward_id == "":
+		return false
+	return condition_tracking.get(RUN_CONDITIONS_MET_KEY_PREFIX + reward_id, false) == true
+
 var rewards_unlocked_but_not_displayed: Array = []
 func add_newly_unlocked_rewards(rewards_ids: Array) -> void:
 	for reward in rewards_ids:
@@ -541,6 +824,39 @@ func get_minimum_age() -> int:
 
 #endregion
 var condition_tracking: Dictionary = {} ### ID of condition, Variant to track
+
+### Best results per encounter, kept so unlock conditions that depend on a single winning run can show the
+### player how close they are (see UnlockCondition.get_progress_current()). encounter ID -> {record key: number}.
+### Only filled by winning runs, and only from the version that added it: results from earlier runs are not
+### known. Untyped on purpose (JSON round trip), so numbers come back as floats - read through
+### get_encounter_record().
+var encounter_records: Dictionary = {}
+
+### The report of the encounter the player is in the middle of. NOT part of the save: it is only set on the
+### temporary copy of the save that the in-encounter rewards panel builds (RewardsForActiveEncounter), so the
+### progress counters of encounter conditions can show how the current run is going (e.g. "1/2" cards played)
+### instead of the best earlier result. See UnlockCondition.get_in_progress_report().
+var in_progress_encounter_report: EncounterReport = null
+
+const RECORD_BEST_SIMULTANEOUS_CUM: String = "best_simultaneous_cum" ### highest = best
+const RECORD_MOST_ORGASMS: String = "most_orgasms" ### highest = best
+const RECORD_FEWEST_ORGASMS: String = "fewest_orgasms" ### lowest = best
+const RECORD_FASTEST_WIN_TURN: String = "fastest_win_turn" ### lowest = best
+const RECORD_MOST_CARDS_IN_ONE_TURN: String = "most_cards_in_one_turn" ### highest = best
+const RECORD_LOWEST_PEAK_PLEASURE_PERCENT: String = "lowest_peak_pleasure_percent" ### lowest = best
+const RECORD_MOST_DEFEATS_BY_SOURCE_PREFIX: String = "most_defeats_by_source_" ### + DefeatSourceKind, highest = best
+
+static func get_defeats_by_source_record_key(kind: EncounterReport.DefeatSourceKind) -> String:
+	return RECORD_MOST_DEFEATS_BY_SOURCE_PREFIX + str(int(kind))
+
+### The stored best result, or default_value if no winning run has recorded one.
+func get_encounter_record(encounter_id: String, record_key: String, default_value: int = -1) -> int:
+	if encounter_id not in encounter_records.keys():
+		return default_value
+	var records: Dictionary = encounter_records[encounter_id]
+	if record_key not in records.keys():
+		return default_value
+	return int(records[record_key])
 
 #region Defining builds:
 var current_build: Dictionary = DEFAULT_CURRENT_BUILD.duplicate(true)
@@ -674,6 +990,12 @@ func get_children_birthed() -> int:
 	return get_times_trigger_has_triggered(pregnancy_tigger_string)
 
 #endregion
+#region Selected map
+### The map shown in the overworld (AutoloadDatabase.MAIN_MAP_ID or a mod map's map_id, see MetaGame.select_map()).
+### Kept as saved even while its mod is disabled (AutoloadDatabase.set_active_map() falls back to the main map), so the
+### choice comes back when the mod does. Older builds drop the key: the save then opens on the main map.
+var selected_map_id: String = ""
+#endregion
 #region Methods for saving:
 func to_dict() -> Dictionary:
 	return {
@@ -684,12 +1006,16 @@ func to_dict() -> Dictionary:
 		#"event_cards_deck":event_cards_deck,
 		"owned_player_actions":owned_player_actions,
 		"currently_used_player_actions":currently_used_player_actions,
+		"player_action_progress":player_action_progress,
+		"player_action_trigger_progress":player_action_trigger_progress,
+		"action_progress_rewards_applied":action_progress_rewards_applied,
 		"rewards_unlocked":rewards_unlocked,
 		"reward_cards_unlocked_for_actions":reward_cards_unlocked_for_actions,
 		"reward_cards_from_actions":reward_cards_from_actions,
 		"action_stats":action_stats,
 		"player": player,
 		"min_deck_size":min_deck_size,
+		"auto_add_new_cards_to_deck":auto_add_new_cards_to_deck,
 		"game_version": SaveSystem.get_current_game_version(),
 		"custom_encounter_state": custom_encounter_state,
 		"orgasms_lifetime": orgasms_lifetime,
@@ -702,6 +1028,7 @@ func to_dict() -> Dictionary:
 		"player_age": player_age,
 		"player_owned_passives": player_owned_passives,
 		"condition_tracking": condition_tracking,
+		"encounter_records": encounter_records,
 		"current_build": current_build,
 		"saved_builds": saved_builds,
 		"selected_character_id": selected_character_id,
@@ -710,7 +1037,8 @@ func to_dict() -> Dictionary:
 		"triggered_effects_tracking":triggered_effects_tracking,
 		"rewards_unlocked_during_last_encounter":rewards_unlocked_during_last_encounter,
 		"owned_ally_cards":owned_ally_cards,
-		"retroactive_migrations_applied":retroactive_migrations_applied
+		"retroactive_migrations_applied":retroactive_migrations_applied,
+		"selected_map_id":selected_map_id,
 		#"tutorial_stages_completed":tutorial_stages_completed
 	}
 
@@ -723,14 +1051,21 @@ func from_dict(data: Dictionary) -> void:
 	#event_cards_deck = data.get("event_cards_deck", DEFAULT_STARTER_DECK.duplicate(true))
 	owned_player_actions = data.get("owned_player_actions", [])
 	currently_used_player_actions = data.get("currently_used_player_actions", [])
+	player_action_progress = data.get("player_action_progress", {})
+	player_action_trigger_progress = data.get("player_action_trigger_progress", {})
+	action_progress_rewards_applied = data.get("action_progress_rewards_applied", {})
+	_action_progress_ledger_was_saved = data.has("action_progress_rewards_applied")
+	_effective_player_action_cache.clear()
 	rewards_unlocked = data.get("rewards_unlocked", {})
 	reward_cards_unlocked_for_actions = data.get("reward_cards_unlocked_for_actions", {})
 	reward_cards_from_actions = data.get("reward_cards_from_actions", {})
 	action_stats = data.get("action_stats", {})
 	player = data.get("player", _default_player.duplicate(true))
 	min_deck_size = data.get("min_deck_size", _default_min_deck_size)
+	auto_add_new_cards_to_deck = data.get("auto_add_new_cards_to_deck", true)
 	game_version = data.get("game_version",_default_game_version)
 	custom_encounter_state = data.get("custom_encounter_state",{})
+	selected_map_id = str(data.get("selected_map_id", ""))
 	orgasms_lifetime = data.get("orgasms_lifetime",0)
 	orgams_cards_unlocked = data.get("orgams_cards_unlocked",["orgasm_muscle_spasm"])
 	most_guys_cumming_in_one_turn = data.get("most_guys_cumming_in_one_turn",0)
@@ -741,6 +1076,7 @@ func from_dict(data: Dictionary) -> void:
 	player_age = data.get("player_age",18)
 	player_owned_passives = data.get("player_owned_passives",PLAYER_STARTER_PASSIVES.duplicate(true))
 	condition_tracking = data.get("condition_tracking",{})
+	encounter_records = data.get("encounter_records",{})
 	current_build = data.get("current_build",DEFAULT_CURRENT_BUILD.duplicate(true))
 	saved_builds = data.get("saved_builds",{"Starter Build":DEFAULT_CURRENT_BUILD.duplicate(true)})
 	selected_character_id = data.get("selected_character_id","emily")
@@ -759,7 +1095,36 @@ func apply_encounter_report(report: EncounterReport) -> void:
 	_apply_action_usage_stats(report)
 	_apply_orgasms_achieved(report)
 	_apply_opponents_defeated_simultaneously(report)
-	
+	_apply_encounter_records(report)
+
+### Updates the best results of the encounter this report is for. Winning runs only: every condition that
+### uses these requires a win.
+func _apply_encounter_records(report: EncounterReport) -> void:
+	if not report.player_won or not report.encounter_def:
+		return
+	var encounter_id: String = report.encounter_def.encounter_id
+	if encounter_id == "":
+		return
+	if encounter_id not in encounter_records.keys():
+		encounter_records[encounter_id] = {}
+	var records: Dictionary = encounter_records[encounter_id]
+	_raise_record(records,RECORD_BEST_SIMULTANEOUS_CUM,report.get_max_opponents_defeated_in_one_turn())
+	_raise_record(records,RECORD_MOST_ORGASMS,report.orgasms_achieved)
+	_lower_record(records,RECORD_FEWEST_ORGASMS,report.orgasms_achieved)
+	_lower_record(records,RECORD_FASTEST_WIN_TURN,report.final_round_number)
+	_raise_record(records,RECORD_MOST_CARDS_IN_ONE_TURN,report.get_most_cards_played_in_one_turn())
+	_lower_record(records,RECORD_LOWEST_PEAK_PLEASURE_PERCENT,int(ceil(report.highest_player_pleasure_percent)))
+	for kind in EncounterReport.DefeatSourceKind.values():
+		_raise_record(records,get_defeats_by_source_record_key(kind),report.get_nr_of_defeats_by_source(kind))
+
+func _raise_record(records: Dictionary, record_key: String, value: int) -> void:
+	if record_key not in records.keys() or value > int(records[record_key]):
+		records[record_key] = value
+
+func _lower_record(records: Dictionary, record_key: String, value: int) -> void:
+	if record_key not in records.keys() or value < int(records[record_key]):
+		records[record_key] = value
+
 func increase_value_in_dictionary(dict: Dictionary,key: String,delta: int) -> void:
 	if key not in dict.keys():
 		dict[key] = delta

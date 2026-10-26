@@ -258,6 +258,29 @@ static func load_texture_from_path(path: String, fallback: Texture2D = null) -> 
 		return fallback
 	return ImageTexture.create_from_image(image)
 
+## Loads an AudioStream from a plain filesystem path (a mod's music, e.g. user://mods/<mod>/music/x.ogg). Only
+## .ogg, .mp3 and .wav can be read without Godot's import step. Looping is left to whoever plays it (SoundManager).
+static func load_audio_stream_from_path(path: String) -> AudioStream:
+	if path == "":
+		return null
+	if not FileAccess.file_exists(path):
+		push_error("Audio file not found at path: %s" % path)
+		return null
+	var stream: AudioStream = null
+	match path.get_extension().to_lower():
+		"ogg":
+			stream = AudioStreamOggVorbis.load_from_file(path)
+		"mp3":
+			stream = AudioStreamMP3.load_from_file(path)
+		"wav":
+			stream = AudioStreamWAV.load_from_file(path)
+		_:
+			push_error("Unsupported audio format (use .ogg, .mp3 or .wav): %s" % path)
+			return null
+	if stream == null:
+		push_error("Failed to load audio data at path: %s" % path)
+	return stream
+
 static func load_asset(path : String) -> Resource:
 	if OS.has_feature("export"):
 		# Check if file is .remap

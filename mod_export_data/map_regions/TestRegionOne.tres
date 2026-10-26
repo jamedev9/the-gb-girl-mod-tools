@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="MapRegionDefinition" format=3 uid="uid://b5e18l471tjg6"]
+
+[ext_resource type="Script" uid="uid://c0r02cu11l27x" path="res://scripts/object_classes/meta_game_objects/map_region_definitions/map_region_definition.gd" id="1_1lftn"]
+
+[resource]
+script = ExtResource("1_1lftn")
+region_id = "testregion_one"
+region_name = "Test Region One"
+background_color = Color(0.9217275, 0.46439582, 0.6419153, 1)
+metadata/_custom_type_script = "uid://c0r02cu11l27x"

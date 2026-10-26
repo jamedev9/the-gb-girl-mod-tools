@@ -21,6 +21,11 @@ var export_configs: Array[ExportConfig] = [
 	ExportConfig.new("res://mod_export_data/image_replacements/", ImageReplacementSet),
 	ExportConfig.new("res://mod_export_data/passives/", PassiveEffectDefinition),
 	ExportConfig.new("res://mod_export_data/event_cards/", EventCardDefinition),
+	ExportConfig.new("res://mod_export_data/status_effects/", StatusEffectDefinition),
+	ExportConfig.new("res://mod_export_data/map_regions/", MapRegionDefinition),
+	ExportConfig.new("res://mod_export_data/rewards/", RewardDefinition),
+	ExportConfig.new("res://mod_export_data/encounters/", EncounterDefinition),
+	ExportConfig.new("res://mod_export_data/maps/", EncounterMap),
 ]
 
 func _run() -> void:
@@ -113,7 +118,7 @@ func _export_single_resource(resource: ModExportable, mod_root: String) -> bool:
 	if resource.has_method("validate"):
 		var errors: Array[String] = []
 		if not resource.validate(errors):
-			push_warning("Validation failed, skipping export: %s" % errors)
+			push_warning("Validation failed, skipping export of %s: %s" % [resource.resource_path, errors])
 			return false
 
 	var json_dict: Dictionary = resource.to_json_dict()
@@ -124,7 +129,7 @@ func _export_single_resource(resource: ModExportable, mod_root: String) -> bool:
 		var source_path: String = json_dict.get(json_key, "")
 		if source_path == "":
 			continue
-		json_dict[json_key] = _copy_file_into_mod(source_path, mod_root, subfolder)
+		json_dict[json_key] = _copy_file_into_mod(source_path, mod_root, subfolder, resource.resource_path)
 
 	var array_file_fields: Dictionary = resource.get_array_file_reference_fields()
 	for array_field_name in array_file_fields.keys():
@@ -136,7 +141,7 @@ func _export_single_resource(resource: ModExportable, mod_root: String) -> bool:
 			var source_path: String = entry.get(file_key, "")
 			if source_path == "":
 				continue
-			entry[file_key] = _copy_file_into_mod(source_path, mod_root, subfolder)
+			entry[file_key] = _copy_file_into_mod(source_path, mod_root, subfolder, resource.resource_path)
 
 	var output_subfolder: String = resource.get_mod_export_subfolder()
 	var output_path: String = mod_root.path_join(output_subfolder).path_join(resource.resource_path.get_file().get_basename() + ".json")
@@ -152,9 +157,10 @@ func _export_single_resource(resource: ModExportable, mod_root: String) -> bool:
 	#DirAccess.copy_absolute(ProjectSettings.globalize_path(source_path), dest_path)
 	#return file_name
 
-func _copy_file_into_mod(source_path: String, mod_root: String, subfolder: String) -> String:
+### used_by: the file of the resource the file belongs to, named in the warnings so it can be found.
+func _copy_file_into_mod(source_path: String, mod_root: String, subfolder: String, used_by: String) -> String:
 	if source_path.begins_with("uid://"):
-		push_warning("Received an unresolved uid:// path — resource's to_json_dict() should resolve this before export: %s" % source_path)
+		push_warning("Received an unresolved uid:// path from %s — its to_json_dict() should resolve this before export: %s" % [used_by, source_path])
 		var uid: int = ResourceUID.text_to_id(source_path)
 		if ResourceUID.has_id(uid):
 			source_path = ResourceUID.get_id_path(uid)

@@ -28,13 +28,24 @@ func get_triggered_components() -> Array:
 func get_ticking_components() -> Array:
 	return ticking_effect_components
 
+### Set by AutoloadDatabase on passives loaded from a mod's JSON. Their text is shown as written instead of
+### going through tr(), since nothing puts mod text into the translation table in an exported build
+### (auto-localization is editor-only) - see EventCardDefinition.is_modded.
+@export_storage var is_modded: bool = false
+
 func get_effect_name() -> String:
+	if is_modded:
+		return passive_name
 	return tr("PASSIVEEFFECTDEFINITION_"+passive_id.to_upper()+"_PASSIVE_NAME")
 
 func get_effect_description() -> String:
+	if is_modded:
+		return passive_description
 	return tr("PASSIVEEFFECTDEFINITION_"+passive_id.to_upper()+"_PASSIVE_DESCRIPTION")
 
 func get_translation_entries() -> Array[Dictionary]:
+	if is_modded:
+		return [] ### Mod text is shown as written, and must not be written into game.csv by the editor's auto-localization.
 	var prefix: String = "PASSIVEEFFECTDEFINITION_"+passive_id.to_upper()
 	return [
 		{"key": prefix+"_PASSIVE_NAME", "text": passive_name},
@@ -50,7 +61,7 @@ func get_translation_entries() -> Array[Dictionary]:
 func get_description_segments() -> Array[DescriptionSegment]:
 	var tooltip: Array[DescriptionSegment] = get_tooltip_description_segments()
 	if tooltip.is_empty():
-		return [DescriptionSegment.text_segment(get_effect_description())]
+		return get_hand_written_description_segments()
 	return tooltip
 
 ## Finds the first DealDamageBasedOnCardPlayCount anywhere in this passive's triggered/ticking

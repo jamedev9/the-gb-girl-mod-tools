@@ -104,6 +104,12 @@ const MODDABLE_PARTICIPANT_TAGS: Array[String] = [ ### These the only ones that 
 @export var participant_tags: Array[ParticipantTags]
 @export var weight: float = 1
 
+### Identifies this clip in PlayerProgression.seen_videos. Clips have no id of their own, and
+### mod clips have no resource_path either, so the video file path is the only thing every
+### clip has.
+func get_seen_video_key() -> String:
+	return video_file
+
 func get_mod_export_subfolder() -> String:
 	return "videos"
 
@@ -112,7 +118,7 @@ func get_file_reference_fields() -> Dictionary:
 
 func to_json_dict() -> Dictionary:
 	return {
-		"video_file": video_file,
+		"video_file": ModExportable.resolve_to_res_path(video_file, resource_path), ### @export_file may have stored a uid:// path
 		"action_tags": VideoClip._convert_action_tags_to_string(action_tags),
 		"participant_tags": VideoClip._convert_participant_tags_to_string(participant_tags, resource_path),
 		"weight": weight,

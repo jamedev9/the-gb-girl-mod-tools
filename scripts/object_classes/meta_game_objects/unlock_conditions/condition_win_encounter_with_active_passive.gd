@@ -1,8 +1,12 @@
+@tool
 extends UnlockCondition
 class_name Condition_WinEncounterWithActivePassive
 
 @export var encounter_id: String
 @export var passive_id: String
+
+func is_judged_on_a_single_run() -> bool:
+	return true
 
 func is_condition_met(_save_game_state: SaveGameState,encounter_report: EncounterReport) -> bool:
 	if not encounter_report:
@@ -20,3 +24,7 @@ func is_condition_met(_save_game_state: SaveGameState,encounter_report: Encounte
 
 func is_condition_hidden_from_player(save_game_state: SaveGameState) -> bool:
 	return not save_game_state.player_owns_passive(passive_id)
+
+func _build_description_segments(_save_game_state: SaveGameState) -> Array[DescriptionSegment]:
+	return _template("UI_UNLOCK_CONDITION_WIN_WITH_PASSIVE",
+		{"encounter": _encounter_name(encounter_id), "passive": _term_link("PASSIVE", passive_id)})

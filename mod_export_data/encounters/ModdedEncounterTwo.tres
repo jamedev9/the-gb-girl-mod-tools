@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="EncounterDefinition" format=3 uid="uid://b5rhrqw8w0bac"]
+
+[ext_resource type="Texture2D" uid="uid://31f6kmmfhnmm" path="res://mod_export_data/images/actor-carolina-sweets-540785_large-489440100.jpg" id="1_e3e5l"]
+[ext_resource type="Script" uid="uid://3ptqijs4tuix" path="res://scripts/object_classes/meta_game_objects/encounter_definitions/encounter_definition.gd" id="2_2ycgm"]
+[ext_resource type="Script" uid="uid://bmw7b6wcns17f" path="res://scripts/object_classes/meta_game_objects/unlock_conditions/unlock_condition.gd" id="3_73hrk"]
+
+[resource]
+script = ExtResource("2_2ycgm")
+map_region_id = "testregion_one"
+encounter_id = "modded_encounter_two"
+encounter_display_name = "Modded Encounter Two"
+encounter_description = "This is another test encounter."
+encounter_picture = ExtResource("1_e3e5l")
+music_track_id = "lofi_study"
+opponents_in_encounter_reserves = Dictionary[String, int]({
+"playboy": 1,
+"pornstar_black": 1,
+"pornstar_white": 1
+})
+min_simultaneous_opponents = 3
+metadata/_custom_type_script = "uid://3ptqijs4tuix"

@@ -3,6 +3,10 @@ extends ModExportable
 class_name EventCardDefinition
 
 @export var card_type_id: String
+### The text keys (name, description) are built from this instead of card_type_id when it is set. For a
+### rework replacement of a prototype card that needs its own text (CarryOverEntry.replacement_content),
+### since the copy has the same card_type_id and would otherwise share the prototype card's text.
+@export var translation_id: String = ""
 @export var card_name: String
 @export var description: String
 @export var card_picture: Texture2D
@@ -18,7 +22,8 @@ enum CardCategory {
 	ORGASM_REWARD,
 	NEEDS, # focused on player orgasms and pleasure,
 	DIRTY_TALK,
-	SUMMON_ALLY # Only one can be active in the deck at a time
+	SUMMON_ALLY, # Only one can be active in the deck at a time,
+	SELF_CONTROL,
 }
 @export var category: CardCategory
 
@@ -39,12 +44,23 @@ const MAX_ENERGY_COST: int = 100
 
 var resoruce_type_string: String = "EVENTCARDDEFINITION_"
 
+### Set by AutoloadDatabase on cards loaded from a mod's JSON. A mod card's text is shown as written
+### (card_name/description) instead of going through tr(): nothing puts mod text into the translation
+### table in an exported build (auto-localization is editor-only), so tr() would return the raw key.
+### @export_storage (stored, not shown in the Inspector) so duplicate() keeps it: a plain var is lost on a copy, and
+### the copy would show translation keys. The hand-written to_json_dict() never writes it.
+@export_storage var is_modded: bool = false
+
 #region Localization:
 func get_card_name() -> String:
+	if is_modded:
+		return card_name
 	var key_string: String = _get_card_name_translation_key_string()
 	return tr(key_string)
 
 func get_card_description() -> String:
+	if is_modded:
+		return description
 	var key_string:String = _get_description_key_string()
 	return tr(key_string)
 
@@ -57,9 +73,13 @@ func _get_card_name_translation_key_string() -> String:
 	return key_string
 
 func _get_name_string() -> String:
+	if translation_id != "":
+		return translation_id.to_upper()
 	return card_type_id.to_upper()
 
 func get_translation_entries() -> Array[Dictionary]:
+	if is_modded:
+		return [] ### Mod text is shown as written, and must not be written into game.csv by the editor's auto-localization.
 	return [
 		{"key": _get_card_name_translation_key_string(), "text": card_name},
 		{"key": _get_description_key_string(), "text": description},
@@ -152,6 +172,8 @@ static func get_event_card_energy_mod_from_player_effects(
 	for passive_id in player_passives:
 		#print("Checking passive %s"%passive_id)
 		var passive_def: PassiveEffectDefinition = AutoloadDatabase.get_passive_effect_def(passive_id)
+		if passive_def == null: ### Not in the game (e.g. a disabled mod's passive).
+			continue
 		for component in passive_def.get_modifier_components():
 			#print("Found component: %s"%component.status_modifer_component_id)
 			if component is not Status_ChangeCostOfPlayingEventCards:

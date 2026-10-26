@@ -16,7 +16,7 @@ func modify_context(context: EffectContext) -> void:
 	var opponent_id: String = context.source.get_opponent_id()
 	var action_on_source: String = context.game_state.get_action_assigned_to_opponent(opponent_id)
 	if action_on_source in action_ids:
-		context.damage_multipliers.append(self.multiplier)
+		context.damage_multipliers.append(_get_multiplier_for_stacks(context))
 
 ### Generic description support (see DescriptionBuilder). Reuses MultiplyDamage's own
 ### classification/wording (parent's get_description_segments()) and appends a condition clause

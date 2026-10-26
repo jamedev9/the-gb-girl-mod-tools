@@ -20,40 +20,66 @@ const NESTED_COLOR: String = "#a0e0e0"
 const HEADING_COLOR: String = "#ffe066"
 
 static func to_bbcode(segments: Array[DescriptionSegment]) -> String:
+	return _render(segments, false, [])
+
+### Same text as to_bbcode(), but every keyword and nested term is a clickable [url=N] instead of a native
+### [hint] - for a RichTextLabel that opens the game's own tooltips from its meta_hover_started/meta_clicked
+### signals (the native hint is plain text only and doesn't work on touch screens). Each linked segment is
+### appended to link_targets, and N is its index there: the label's owner keeps that list to look up what a
+### hovered/tapped meta stands for. Pass a fresh (empty) list for each text that is rendered.
+static func to_bbcode_with_links(segments: Array[DescriptionSegment], link_targets: Array[DescriptionSegment]) -> String:
+	return _render(segments, true, link_targets)
+
+static func _render(segments: Array[DescriptionSegment], as_links: bool, link_targets: Array) -> String:
 	var result: String = ""
 	for segment in segments:
 		match segment.type:
 			DescriptionSegment.Type.TEXT:
 				result += _escape_bbcode(segment.text)
 			DescriptionSegment.Type.KEYWORD:
-				result += _render_keyword(segment.keyword_id)
+				result += _render_keyword(segment, as_links, link_targets)
 			DescriptionSegment.Type.NESTED:
-				result += _render_nested(segment)
+				result += _render_nested(segment, as_links, link_targets)
 			DescriptionSegment.Type.HEADING:
 				result += _render_heading(segment.text)
+			DescriptionSegment.Type.EMPHASIS:
+				result += _render_emphasis(segment)
 	return result
+
+static func _render_emphasis(segment: DescriptionSegment) -> String:
+	if segment.emphasis_italic:
+		return "[b][i]%s[/i][/b]" % _escape_bbcode(segment.text)
+	return "[b]%s[/b]" % _escape_bbcode(segment.text)
 
 static func _render_heading(heading_text: String) -> String:
 	return "[b][color=%s]%s[/color][/b]" % [HEADING_COLOR, _escape_bbcode(heading_text)]
 
-static func _render_keyword(keyword_id: String) -> String:
-	var keyword: GameplayKeyword = AutoloadDatabase.get_gameplay_keyword(keyword_id)
+static func _render_keyword(segment: DescriptionSegment, as_links: bool, link_targets: Array) -> String:
+	var keyword: GameplayKeyword = AutoloadDatabase.get_gameplay_keyword(segment.keyword_id)
 	if not keyword:
-		return "[%s]" % keyword_id
+		return "[%s]" % segment.keyword_id
 	var color_hex: String = "#" + keyword.color.to_html(false)
 	var icon_bbcode: String = ""
 	if keyword.icon:
 		icon_bbcode = "[img=%dx%d]%s[/img] " % [ICON_SIZE, ICON_SIZE, keyword.icon.resource_path]
 	var display_name: String = _escape_bbcode(keyword.get_display_name())
-	var hint_text: String = _escape_bbcode(keyword.get_description())
+	if as_links:
+		link_targets.append(segment)
+		return "[url=%d][color=%s]%s%s[/color][/url]" % [link_targets.size() - 1, color_hex, icon_bbcode, display_name]
+	### The description may name other keywords as {KEYWORD_ID} tokens; [hint] is plain text, so flatten them to names.
+	var hint_text: String = _escape_bbcode(to_plain_text(DescriptionBuilder.parse_template(keyword.get_description())))
 	return "[hint=%s][color=%s]%s%s[/color][/hint]" % [hint_text, color_hex, icon_bbcode, display_name]
 
 ### [hint=...]'s tooltip text is plain text only (not itself BBCode-rendered), so the nested
 ### description is flattened via to_plain_text() rather than to_bbcode() - it won't show
 ### keyword colors/icons inside the tooltip yet. A player-facing renderer using the game's own
 ### custom-styled tooltip popups instead of the native [hint] tag wouldn't have this limit.
-static func _render_nested(segment: DescriptionSegment) -> String:
+static func _render_nested(segment: DescriptionSegment, as_links: bool, link_targets: Array) -> String:
 	var label: String = _escape_bbcode(segment.text)
+	if as_links:
+		link_targets.append(segment)
+		### [url] is underlined by the label itself (RichTextLabel.meta_underlined), so no [u] here.
+		return "[url=%d][color=%s]%s[/color][/url]" % [link_targets.size() - 1, NESTED_COLOR, label]
 	var nested_text: String = _escape_bbcode(to_plain_text(segment.nested_segments))
 	return "[hint=%s][color=%s][u]%s[/u][/color][/hint]" % [nested_text, NESTED_COLOR, label]
 
@@ -71,6 +97,8 @@ static func to_plain_text(segments: Array[DescriptionSegment]) -> String:
 			DescriptionSegment.Type.NESTED:
 				result += segment.text
 			DescriptionSegment.Type.HEADING:
+				result += segment.text
+			DescriptionSegment.Type.EMPHASIS:
 				result += segment.text
 	return result
 

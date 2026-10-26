@@ -4,6 +4,10 @@ class_name OpponentInstance
 var opponent_type: OpponentType
 var opponent_id: String
 var opponent_name: String
+### True for opponents that entered through the encounter's spawn queue (not summoned). Only these count for winning.
+var spawned_from_spawn_queue: bool = false
+### Picked once so the opponent card and the central animation show the same look.
+var appearance: OpponentAppearance
 
 var current_damage: int = 0
 var orgasms_experienced: int = 0
@@ -19,6 +23,7 @@ var strategy_state: Dictionary = {}
 func _init(_opponent_type: OpponentType) -> void:
 	self.opponent_type = _opponent_type
 	self.opponent_name = get_opponent_name_from_type(_opponent_type)
+	self.appearance = _opponent_type.get_random_appearance()
 
 func choose_action(_context: EffectContext=null) -> OpponentActionDefinition:
 	return opponent_type.action_strategy.choose_action(self, _context)

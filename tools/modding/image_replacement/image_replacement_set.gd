@@ -30,6 +30,6 @@ func to_json_dict() -> Dictionary:
 		replacement_dicts.append({
 			"replacement_type": ImageReplacement.ReplacementType.keys()[replacement.replacement_type],
 			"target_id": replacement.target_id,
-			"image_path": ModExportable.resolve_to_res_path(replacement.image_path),
+			"image_path": ModExportable.resolve_to_res_path(replacement.image_path, resource_path),
 		})
 	return {"character_id": character_id, "replacements": replacement_dicts}

@@ -58,6 +58,15 @@ var statuses_to_clear: Array[String]
 #Structure: {"def":StatusEffectDefnition,"duration":int,"stacks": int}
 var passive_sending_context: PassiveEffectDefinition
 
+### Stack count of the status that SENT this context (its tick, or one of its triggered reactions), 1 for
+### everything else. Set when that status's effect is built (see StatusEffectManager and
+### MainCardgame._on_triggered_component_triggered()) and read by EffectIntent.scale_context_by_stacks().
+var source_effect_stacks: int = 1
+### Scratch field, like damage_phase: the stack count of the status whose modifier components are being run
+### RIGHT NOW (MODIFY phase), set by EffectContextManager for each status in turn. A modifier that scales
+### with stacks reads it inside modify_context(); outside that call it means nothing.
+var modifier_effect_stacks: int = 1
+
 ### The entity that ORIGINALLY PLACED the status currently ticking - distinct from `source`
 ### above, which for a status's own ticking effect is instead the entity that HAS the status
 ### (so TargetingSystem.TargetingMode.SOURCE_OF_EFFECT can still resolve the tick's target to
@@ -106,6 +115,18 @@ var change_opponent_action_to: String #id of action
 # Orgasms:
 var restore_orgasms: int
 var orgasms_to_trigger: int
+
+# Turn cycle: the step the game has just entered (a TurnStepSystem.TurnStep value), NO_STEP for every other context.
+var turn_step: int = TurnStepSystem.NO_STEP
+
+# Ending the player's turn (the effect version of the End Turn button).
+var end_player_turn: bool = false
+
+# Setting the player's Pleasure to an exact value (not damage, not healing: no multipliers apply). -1 = not a set.
+var set_player_pleasure_to: int = -1
+
+# Edging: how much to move the player's edging threshold (share of max Pleasure, -0.1 = 10 points lower). 0 = no change.
+var edging_threshold_change: float = 0.0
 
 # After orgasm has occurred:
 var player_orgasmed: bool = false
@@ -164,54 +185,6 @@ static func new_move_player_action_intent(
 		move_intent.energy_reason = EnergyReason.RETRACTED_PLAYER_ACTION
 	
 	return move_intent
-
-static func new_player_action_damage_intent(
-	_game_state:GameState,
-	action_id: String,
-	_target: TargetEntity) -> EffectContext:
-	var damage_intent_context: EffectContext = EffectContext.new()
-	damage_intent_context.game_state = _game_state
-	damage_intent_context.context_phase = ContextPhase.INTENT
-	damage_intent_context.id_of_effect_origin = action_id
-	damage_intent_context.damage_phase = DamageSystem.DamagePhase.OUTGOING
-	
-	var action_def: PlayerAction = AutoloadDatabase.player_actions_by_id[action_id]
-	damage_intent_context.damage_amount = action_def.base_damage
-	damage_intent_context.source = PlayerEntity.new(_game_state)
-	damage_intent_context.id_of_effect_origin = action_id
-	damage_intent_context.effect_origin = action_def
-	damage_intent_context.target = _target
-	return damage_intent_context
-
-static func new_opponent_action_damage_intent(_game_state: GameState,
-	opponent_id: String,opponent_action:OpponentActionDefinition
-	) -> EffectContext:
-	var damage_intent_context: EffectContext = EffectContext.new()
-	var action_id = opponent_action.opponent_action_id
-	damage_intent_context.game_state = _game_state
-	damage_intent_context.context_phase = ContextPhase.INTENT
-	damage_intent_context.id_of_effect_origin = opponent_action.opponent_action_id
-	damage_intent_context.damage_phase = DamageSystem.DamagePhase.OUTGOING
-	
-	damage_intent_context.damage_amount = opponent_action.base_damage
-	damage_intent_context.source = OpponentEntity.new(_game_state,opponent_id)
-	damage_intent_context.id_of_effect_origin = action_id
-	damage_intent_context.effect_origin = opponent_action
-	damage_intent_context.target = PlayerEntity.new(_game_state)
-	return damage_intent_context
-	
-static func new_apply_statuses_intent(
-	_game_state:GameState,_id_of_effect_origin: String,_effect_origin, _source: TargetEntity,_target: TargetEntity,_statuses_to_apply: Array[ApplyStatusEffect]) -> EffectContext:
-	var apply_statuses_intent: EffectContext = EffectContext.new()
-	apply_statuses_intent.game_state = _game_state
-	apply_statuses_intent.context_phase = ContextPhase.INTENT
-	apply_statuses_intent.id_of_effect_origin = _id_of_effect_origin
-	apply_statuses_intent.effect_origin = _effect_origin
-	apply_statuses_intent.game_state = _game_state
-	apply_statuses_intent.source = _source
-	apply_statuses_intent.target = _target
-	apply_statuses_intent.statuses_to_apply = _statuses_to_apply
-	return apply_statuses_intent
 
 static func new_play_event_card_intent(
 	_game_state:GameState,_event_card_instance: EventCardInstance,opponent_id: String = ""

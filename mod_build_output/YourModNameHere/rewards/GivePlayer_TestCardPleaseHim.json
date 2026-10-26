@@ -1,0 +1,19 @@
+{
+	"_class": "Reward_GivePlayerEventCards",
+	"cards_to_give": {
+		"testmodcard_givepleasure": 3
+	},
+	"reward_description": "Get three of the {CARD:testmodcard_givepleasure} cards.",
+	"reward_id": "giveplayer_testmodcard_givepleasure",
+	"reward_name": "Test Reward: Get Give Pleasure cards",
+	"reward_picture": "dec04391f1ef2830f16e804c46397160.jpeg",
+	"unlock_conditions": [
+		{
+			"_class": "Condition_WinByTurnN",
+			"description": "",
+			"encounter_id": "modded_encounter_one",
+			"turn_to_win_by": 5,
+			"unlock_condition_id": "clearmoddedencountertogetmoddedcard"
+		}
+	]
+}

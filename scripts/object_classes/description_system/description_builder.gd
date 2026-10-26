@@ -9,19 +9,25 @@ class_name DescriptionBuilder
 ###
 ### Template syntax: "Deal {damage} {PLEASURE} to your {OPPONENT}" - plain {word} tokens.
 ### Each token is resolved in this order:
+###   0. A prefixed token, {KIND:id} ({STATUS:denied}, {PASSIVE:...}, {ACTION:...}, {CARD:...}, {MOVE:...})? -> a linkable
+###      term segment, see DescriptionTerms.from_token(). This is what lets a hand-written text point at a status, passive,
+###      action, card or Move.
 ###   1. Is "word" a registered GameplayKeyword id? -> KEYWORD segment.
 ###   2. Otherwise, look it up in `substitutions` -> a DescriptionSegment value is inserted
-###      as-is (e.g. a NESTED segment for "apply this status, hover for what it does"), any
-###      other value becomes a TEXT segment via str().
+###      as-is (e.g. a NESTED segment for "apply this status, hover for what it does"), an Array
+###      of DescriptionSegments is inserted segment by segment (e.g. a joined list of card names),
+###      any other value becomes a TEXT segment via str().
 ###   3. Otherwise, leave the literal "{word}" in place (missing substitution - visible bug,
 ###      not a silent failure).
 ### The same uniform {word} syntax for both keywords and values is deliberate: translators
 ### can freely move any placeholder around in a translated template without needing to know
 ### which ones are "special".
-static func parse_template(template: String, substitutions: Dictionary = {}) -> Array[DescriptionSegment]:
+### card_permanence_hints: see DescriptionTerms.from_token() (what a {CARD:id} token in a hand-written text looks like).
+static func parse_template(
+		template: String, substitutions: Dictionary = {}, card_permanence_hints: Dictionary = {}) -> Array[DescriptionSegment]:
 	var segments: Array[DescriptionSegment] = []
 	var regex := RegEx.new()
-	regex.compile("\\{(\\w+)\\}")
+	regex.compile("\\{(\\w+)(?::(\\w+))?\\}")
 	var last_end: int = 0
 	for match_result in regex.search_all(template):
 		var token_start: int = match_result.get_start()
@@ -29,12 +35,19 @@ static func parse_template(template: String, substitutions: Dictionary = {}) -> 
 		if token_start > last_end:
 			segments.append(DescriptionSegment.text_segment(template.substr(last_end, token_start - last_end)))
 		var token_name: String = match_result.get_string(1)
-		if AutoloadDatabase.get_gameplay_keyword(token_name):
+		var token_term_id: String = match_result.get_string(2)
+		if not token_term_id.is_empty():
+			segments.append(DescriptionTerms.from_token(token_name, token_term_id, card_permanence_hints))
+		elif AutoloadDatabase.get_gameplay_keyword(token_name):
 			segments.append(DescriptionSegment.keyword_segment(token_name))
 		elif substitutions.has(token_name):
 			var value = substitutions[token_name]
 			if value is DescriptionSegment:
 				segments.append(value)
+			elif value is Array:
+				for list_item in value:
+					if list_item is DescriptionSegment:
+						segments.append(list_item)
 			else:
 				segments.append(DescriptionSegment.text_segment(str(value)))
 		else:
@@ -44,6 +57,24 @@ static func parse_template(template: String, substitutions: Dictionary = {}) -> 
 	if last_end < template.length():
 		segments.append(DescriptionSegment.text_segment(template.substr(last_end)))
 	return segments
+
+### "per stack" - tacked on to a description whose numbers grow with the stack count of the status that runs it
+### (DealDamageEffect with scale_with_stacks: damage x stacks). The caller adds the separating space.
+static func per_stack_segments() -> Array[DescriptionSegment]:
+	return parse_template(TranslationServer.translate("DESCRIPTION_PER_STACK"))
+
+### "per stack (multiplicative)" - for a multiplier whose stacks COMPOUND (MultiplyDamage with scale_with_stacks: x0.5 is
+### x0.25 at 2 stacks). The caller adds the separating space.
+static func per_stack_multiplicative_segments() -> Array[DescriptionSegment]:
+	return parse_template(TranslationServer.translate("DESCRIPTION_PER_STACK_MULTIPLICATIVE"))
+
+### "per stack (additive)" - for a percentage whose stacks ADD UP (IncreaseDamageByPercent: +25% is +50% at 2 stacks).
+### The caller adds the separating space. current_percent (>= 0) adds what the stacks come to right now:
+### "per stack (additive, currently 60%)"; -1 leaves it out.
+static func per_stack_additive_segments(current_percent: int = -1) -> Array[DescriptionSegment]:
+	if current_percent >= 0:
+		return parse_template(TranslationServer.translate("DESCRIPTION_PER_STACK_ADDITIVE_CURRENT"), {"percent": str(current_percent)})
+	return parse_template(TranslationServer.translate("DESCRIPTION_PER_STACK_ADDITIVE"))
 
 ### Picks a singular or plural template key based on count and parses whichever one applies -
 ### e.g. "for 1 turn" vs "for 3 turns", "Draw 1 card" vs "Draw 3 cards". English only has these
@@ -131,7 +162,7 @@ static func classify_percent_multiplier(multiplier: float) -> Dictionary:
 	return {"case": "increased" if multiplier > 1.0 else "reduced", "percent": percent}
 
 ### Composes a "When {condition}: {effect}." line - shared by
-### EffectDefinition._trigger_line() (a passive/status's Triggers section) and
+### EffectDefinition.trigger_line() (a passive/status/player action's Triggers section) and
 ### OpponentActionDefinition.get_description_segments() (a move that only resolves under a
 ### condition) - both wrap a TriggerCondition/StatusTickComponent-style "when" clause around an
 ### effect the exact same way. condition_segments is expected to already be a lowercase clause

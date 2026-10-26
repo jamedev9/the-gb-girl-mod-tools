@@ -11,12 +11,22 @@ class_name DescriptionSegment
 ### this is a plain RefCounted rather than a Resource. This is the shared "plumbing" both the
 ### debug renderer and (later) the player-facing renderer consume - only the rendering layer
 ### differs between them, not this data.
-enum Type { TEXT, KEYWORD, NESTED, HEADING }
+### An EMPHASIS is a value or a name picked out in the text without being a link (a number, an encounter's name): bold,
+### and italic too when emphasis_italic is set (names).
+enum Type { TEXT, KEYWORD, NESTED, HEADING, EMPHASIS }
 
 var type: Type
 var text: String = "" ### literal text for TEXT/HEADING segments, or the label for NESTED segments
 var keyword_id: String = "" ### GameplayKeyword id for KEYWORD segments
 var nested_segments: Array[DescriptionSegment] = [] ### the on-hover description for NESTED segments
+### Set on a NESTED segment that stands for an event card: its tooltip then shows the card itself (a Tooltip_EventCard)
+### instead of nested_segments, which stay as the text for anywhere that cannot show a card (no PopupController, plain text).
+var card_id: String = ""
+### EMPHASIS segments only: bold italic (a name) instead of just bold (a number).
+var emphasis_italic: bool = false
+### How that card looks in its tooltip (a CardInstance.CardPermanence value: permanent, temporary/combo, reward, problem, ...).
+### Taken from the effect that hands the card out (CardsToAddIntent.permanence), see DescriptionTerms.
+var card_permanence: int = CardInstance.CardPermanence.PERMANENT
 
 static func text_segment(given_text: String) -> DescriptionSegment:
 	var segment := DescriptionSegment.new()
@@ -35,6 +45,22 @@ static func nested_segment(label: String, given_nested_segments: Array[Descripti
 	segment.type = Type.NESTED
 	segment.text = label
 	segment.nested_segments = given_nested_segments
+	return segment
+
+### A NESTED segment for an event card. See card_id.
+static func card_segment(
+		label: String, given_card_id: String, given_nested_segments: Array[DescriptionSegment],
+		given_permanence: int = CardInstance.CardPermanence.PERMANENT) -> DescriptionSegment:
+	var segment: DescriptionSegment = nested_segment(label, given_nested_segments)
+	segment.card_id = given_card_id
+	segment.card_permanence = given_permanence
+	return segment
+
+static func emphasis_segment(given_text: String, italic: bool = false) -> DescriptionSegment:
+	var segment := DescriptionSegment.new()
+	segment.type = Type.EMPHASIS
+	segment.text = given_text
+	segment.emphasis_italic = italic
 	return segment
 
 static func heading_segment(given_text: String) -> DescriptionSegment:

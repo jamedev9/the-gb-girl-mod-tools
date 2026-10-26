@@ -11,6 +11,12 @@ class_name EventCard
 @export var shader_overlay: TextureRect
 @export var duration_control: Control
 @export var card_duration_value: Label
+### On: the cost label follows the current encounter's cost-changing statuses and passives (cards in
+### the hand, tooltips). Off: always the card's base cost. Cards shown outside an encounter (the deck
+### builder, the orgasm card pickers) must be off - every EventCard listens to the main game's
+### game_state_changed, so they would otherwise pick up the running encounter's reductions and keep
+### them after it ends.
+@export var use_live_energy_cost: bool = true
 
 var all_actions_are_disabled: bool = false
 
@@ -56,7 +62,6 @@ func _ready() -> void:
 
 func update_class_specific_displays(game_state: GameState) -> void:
 	show_if_disabled_by_status(game_state)
-	update_energy_cost(game_state)
 	_make_unavailable_during_opponents_turn(game_state)
 	_make_unavailable_after_game_end(game_state)
 	### Re-evaluates the picture override (see display_event_card) now that main_game/
@@ -65,6 +70,8 @@ func update_class_specific_displays(game_state: GameState) -> void:
 	### character yet. Cheap and idempotent (card_id_already_shown skips the text work).
 	if event_card_instance:
 		display_event_card(event_card_instance)
+	### Must run after display_event_card(), which resets the cost label to the card's base cost.
+	update_energy_cost(game_state)
 
 func _update_duration_display() -> void:
 	if not event_card_instance:
@@ -113,9 +120,16 @@ func display_event_card(given_card_instance: EventCardInstance) -> void:
 	### can't share glyph-shaping across separate Label instances) when this exact card
 	### is already what's displayed - callers re-invoke this on unrelated save updates.
 	var card_id_already_shown: bool = self.event_card_id == given_card_instance.card_id
+	var event_card_def: EventCardDefinition = AutoloadDatabase.get_event_card_def_by_id(given_card_instance.card_id)
+	### Not every card exists in every play mode (Full Rework only loads what its ContentSet
+	### carries over, while some screens - e.g. the tutorial's example card - name a card by
+	### hardcoded id), so show nothing rather than crash. Checked before storing the instance so
+	### _refresh_text() can't hit the same missing definition later.
+	if event_card_def == null:
+		push_warning("Event card '%s' isn't in the loaded content, so it isn't displayed." % given_card_instance.card_id)
+		return
 	self.event_card_instance = given_card_instance
 	self.event_card_id =  given_card_instance.card_id
-	var event_card_def: EventCardDefinition = AutoloadDatabase.get_event_card_def_by_id(given_card_instance.card_id)
 	if not card_id_already_shown:
 		var card_name_text: String = event_card_def.get_card_name()
 		event_card_name.text = card_name_text
@@ -203,6 +217,8 @@ func emit_animation_state_changed() -> void:
 #region Testing new drag and drop:
 
 var _drag_offset: Vector2  = Vector2(0,0)
+### The copy of this card that follows the cursor during a normal (non-arrow) drag.
+var drag_preview_card: Control = null
 func _get_drag_data(_at_position: Vector2) -> Variant:
 	if not main_game.game_state.player_can_input():
 		return
@@ -236,11 +252,17 @@ func _get_drag_data(_at_position: Vector2) -> Variant:
 	preview_card.position = -_at_position
 
 	preview_root.add_child(preview_card)
+	drag_preview_card = preview_card
+	_prepare_drag_preview(preview_root)
 	set_drag_preview(preview_root)
 	change_animation_state(AnimationState.DRAGGING)
-	
+
 	return self
-	
+
+### Hook for subclasses to adjust the drag preview before it is handed to set_drag_preview().
+func _prepare_drag_preview(_preview_root: Control) -> void:
+	pass
+
 	
 #endregion
 #region Disabled (visually) when event card is unable to be played.
@@ -259,6 +281,9 @@ func show_if_disabled_by_status(game_state: GameState) -> void:
 
 func update_energy_cost(game_state: GameState) -> void:
 	if not event_card_instance:
+		return
+	if not use_live_energy_cost:
+		set_energy_cost_value(AutoloadDatabase.get_event_card_def_by_id(self.event_card_instance.card_id).energy_cost)
 		return
 	var cost_of_card: int = EventCardDefinition.get_energy_cost_of_playing_card(game_state,self.event_card_instance.card_id)
 	set_energy_cost_value(cost_of_card)

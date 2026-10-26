@@ -9,6 +9,7 @@ enum ReplacementType {
 
 var _overrides: Dictionary = {} # "%s:%s:%s" % [ReplacementType, type_instance, character_id] -> full file path (String)
 var _texture_cache: Dictionary = {} # image_path -> Texture2D
+var _registered_textures: Dictionary = {} # "%s:%s:" generic lookup key -> Texture2D, set from code (see register_texture_override)
 
 func _ready() -> void:
 	_load_all_mod_image_replacements()
@@ -78,6 +79,12 @@ func _register_replacement_set(json_path: String, mod_path: String, mod_folder_n
 func _build_lookup_key(type_name: String, target_id: String, character_id: String) -> String:
 	return "%s:%s:%s" % [type_name, target_id, character_id]
 
+### Replacement art handed over as a ready Texture2D rather than a mod file - used by Full Rework
+### mode's ContentSet. Applies to every character; a mod's file override for the same target wins.
+func register_texture_override(replacement_type: ReplacementType, type_instance: String, texture: Texture2D) -> void:
+	var type_name: String = ReplacementType.keys()[replacement_type]
+	_registered_textures[_build_lookup_key(type_name, type_instance, "")] = texture
+
 ## character_id is optional - pass the currently active character's id (see
 ## SaveGameState.selected_character_id) to prefer a character-scoped override (see
 ## ImageReplacementSet.character_id) over a generic one for the same target, falling back to
@@ -90,7 +97,7 @@ func get_override_texture(replacement_type: ReplacementType, type_instance: Stri
 	if image_path == "":
 		image_path = _overrides.get(_build_lookup_key(type_name, type_instance, ""), "")
 	if image_path == "":
-		return null
+		return _registered_textures.get(_build_lookup_key(type_name, type_instance, ""), null)
 	if image_path in _texture_cache.keys():
 		return _texture_cache[image_path]
 

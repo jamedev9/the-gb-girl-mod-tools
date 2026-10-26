@@ -42,6 +42,13 @@ func get_video_by_tags(
 	
 	return database.get_random_clip(required_action_tags,required_participant_tags)
 
+### Call wherever a clip starts playing in game, so the video gallery can unlock it. Saved in
+### the machine-wide player progression, not the individual save game.
+func register_clip_as_seen(clip: VideoClip) -> void:
+	if not clip:
+		return
+	SaveSystem.mark_video_as_seen(clip.get_seen_video_key())
+
 ### Claude-induced modding, added 19.07.26 — unchanged, this is a separate system (user:// JSON mods)
 
 func _load_mod_video_clips() -> Array[VideoClip]:

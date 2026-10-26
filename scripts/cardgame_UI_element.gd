@@ -32,7 +32,8 @@ enum TooltipId {
 	EVENT_CARD_PROBLEM,
 	OPPONENT_TYPE,
 	ENCOUNTER_STATUS_EXPLANATION,
-	GENERIC_TOOLTIP
+	GENERIC_TOOLTIP,
+	PLAYER_ACTION_DESCRIPTION
 }
 
 func _ready() -> void:
@@ -48,6 +49,11 @@ func _notification(what: int) -> void:
 func _refresh_text() -> void:
 	### For localization
 	pass
+
+### Seconds the pointer must rest on this element before PopupController even creates its tooltip (0 = right away; the usual
+### fade-in wait comes on top). Overridden by elements the pointer passes over a lot.
+func get_tooltip_delay() -> float:
+	return 0.0
 
 func _on_fragment_animations_finished() -> void:
 	#Overwrite in child classes 
@@ -95,6 +101,17 @@ func get_save_game_state() -> SaveGameState:
 ### being unset would itself be a bug worth surfacing, not silently swallowing. Empty string
 ### correctly means "no character scoping" to ImageOverrideManager.get_override_texture(), so
 ### this is a real fallback, not just crash suppression.
+### The PlayerAction as the current save sees it (progressed effects included) - falls back to the
+### plain disk template while main_game/meta_game/save_game_state aren't available yet, for the
+### same early-load reasons as get_selected_character_id() below. See
+### SaveGameState.get_effective_player_action().
+func get_effective_player_action(action_id: String) -> PlayerAction:
+	if main_game:
+		var meta_game: Node = main_game.meta_game
+		if meta_game and meta_game.save_game_state:
+			return meta_game.save_game_state.get_effective_player_action(action_id)
+	return AutoloadDatabase.get_player_action_by_id(action_id)
+
 func get_selected_character_id() -> String:
 	if not main_game:
 		return ""

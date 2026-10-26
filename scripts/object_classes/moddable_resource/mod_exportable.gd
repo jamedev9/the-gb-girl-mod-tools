@@ -22,25 +22,34 @@ const _INTERNAL_RESOURCE_FIELDS: Array[String] = [
 ## be reconstructed via ModdableResourceRegistry.instantiate() without the reader needing to know
 ## the concrete type up front (needed for polymorphic arrays like
 ## EffectAndTargetIntent.targeting_rules, which can mix any of TargetingRule's subclasses).
-## A subclass with a field that shouldn't be embedded as-is (e.g. a reference to a stable,
-## AutoloadDatabase-registered content resource like StatusEffectDefinition, which should
-## serialize as an id string instead) overrides this - see ApplyStatusEffect.
+## Content refers to registered content (statuses, cards, ...) by an id String field (see
+## ApplyStatusEffect.status_id), which this walk writes as-is. A subclass with a field that can't be
+## written as-is overrides this and lists the field in _get_fields_excluded_from_generic_json().
 func to_json_dict() -> Dictionary:
 	var result: Dictionary = {"_class": get_script().get_global_name()}
+	var excluded_fields: Array[String] = _get_fields_excluded_from_generic_json()
 	for property in get_property_list():
 		if not (property.usage & PROPERTY_USAGE_STORAGE):
 			continue
 		if _INTERNAL_RESOURCE_FIELDS.has(property.name) or property.name.begins_with("metadata/"):
 			continue
-		result[property.name] = _serialize_value(get(property.name))
+		if excluded_fields.has(property.name):
+			continue
+		result[property.name] = _serialize_value(get(property.name), property.name)
 	return result
 
-func _serialize_value(value):
+### Fields a subclass writes/reads itself and the generic walk must not
+### touch at all - not even to serialize and discard, which would hit _serialize_value()'s
+### non-ModExportable error for any field holding e.g. a StatusEffectDefinition.
+func _get_fields_excluded_from_generic_json() -> Array[String]:
+	return []
+
+func _serialize_value(value, field_name: String = ""):
 	match typeof(value):
 		TYPE_ARRAY:
 			var out: Array = []
 			for element in (value as Array):
-				out.append(_serialize_value(element))
+				out.append(_serialize_value(element, field_name))
 			return out
 		TYPE_DICTIONARY:
 			var dict_value: Dictionary = value
@@ -52,7 +61,7 @@ func _serialize_value(value):
 			if all_string_keys:
 				var out: Dictionary = {}
 				for key in dict_value.keys():
-					out[key] = _serialize_value(dict_value[key])
+					out[key] = _serialize_value(dict_value[key], field_name)
 				return out
 			### Dictionary keys must round-trip through JSON too (e.g.
 			### Intent_AddCardsFromListOfCardsToHand.cards_and_weights: Dictionary[CardsToAddIntent, float])
@@ -60,14 +69,15 @@ func _serialize_value(value):
 			### an explicit list of {key, value} pairs instead of a native JSON object.
 			var pairs: Array = []
 			for key in dict_value.keys():
-				pairs.append({"key": _serialize_value(key), "value": _serialize_value(dict_value[key])})
+				pairs.append({"key": _serialize_value(key, field_name), "value": _serialize_value(dict_value[key], field_name)})
 			return {"_dict_pairs": pairs}
 		TYPE_OBJECT:
 			if value == null:
 				return null
 			if value.has_method("to_json_dict"):
 				return value.to_json_dict()
-			push_error("ModExportable: cannot generically serialize non-ModExportable Object field of type %s - give the owning class a to_json_dict()/populate_from_json_dict() override." % value.get_class())
+			push_error("ModExportable: cannot generically serialize field '%s' on %s (a non-ModExportable %s) - give the owning class a to_json_dict()/populate_from_json_dict() override and list the field in _get_fields_excluded_from_generic_json()." % [
+				field_name, get_script().get_global_name(), value.get_class()])
 			return null
 		_:
 			return value
@@ -78,10 +88,13 @@ func _serialize_value(value):
 ## already has (matching the save-system-wide `.get(key, default)` forward/backward-compatibility
 ## convention documented in CLAUDE.md).
 func populate_from_json_dict(data: Dictionary) -> void:
+	var excluded_fields: Array[String] = _get_fields_excluded_from_generic_json()
 	for property in get_property_list():
 		if not (property.usage & PROPERTY_USAGE_STORAGE):
 			continue
 		if _INTERNAL_RESOURCE_FIELDS.has(property.name) or property.name.begins_with("metadata/"):
+			continue
+		if excluded_fields.has(property.name):
 			continue
 		if not data.has(property.name):
 			continue
@@ -136,12 +149,13 @@ func get_file_reference_fields() -> Dictionary:
 func get_array_file_reference_fields() -> Dictionary:
 	return {}
 
-static func resolve_to_res_path(path: String) -> String:
+### used_by: the file of the resource the path belongs to, named in the warning so it can be found.
+static func resolve_to_res_path(path: String, used_by: String = "") -> String:
 	if path.begins_with("uid://"):
 		var uid: int = ResourceUID.text_to_id(path)
 		if ResourceUID.has_id(uid):
 			return ResourceUID.get_id_path(uid)
-		push_warning("Could not resolve uid path: %s" % path)
+		push_warning("Could not resolve uid path: %s%s" % [path, (" (used by %s)" % used_by) if used_by != "" else ""])
 		return ""
 	return path
 

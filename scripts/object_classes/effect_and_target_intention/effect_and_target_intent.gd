@@ -123,6 +123,26 @@ static func targeting_is_singular(
 			return not targeting_rules.is_empty()
 	return false
 
+### The single Pleasure number shown on a card/opponent for a whole Array[EffectAndTargetIntent] -
+### the sum of every DealDamageEffect/RandomlyHealOrDealDamage's damage. Shared by the opponent
+### card's upcoming-action label and PlayerAction's displayed damage, so both always agree on
+### what counts. Ignores targeting by default (a self-targeted intent still counts), matching what the
+### opponent card has always shown - an opponent's Move hurts the player, so its damage IS player-targeted.
+### A PlayerAction passes exclude_player_targeted: its card number is the Pleasure it gives the Partner,
+### not the Pleasure it also gives the player.
+static func sum_displayed_damage(intents: Array[EffectAndTargetIntent], exclude_player_targeted: bool = false) -> int:
+	var total: int = 0
+	for intent in intents:
+		if intent == null:
+			continue
+		if exclude_player_targeted and intent.targeting_intent == TargetingSystem.TargetingMode.PLAYER:
+			continue
+		if intent.effect_intent is DealDamageEffect:
+			total += intent.effect_intent.damage
+		elif intent.effect_intent is RandomlyHealOrDealDamage:
+			total += intent.effect_intent.damage
+	return total
+
 ### Top-level entry point: describes a whole Array[EffectAndTargetIntent] - what any
 ### EventCardDefinition/PlayerAction/OpponentActionDefinition effectively has - as one
 ### combined description, one sentence per intent (after merging consecutive duplicates -

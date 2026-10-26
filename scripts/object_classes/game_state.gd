@@ -20,6 +20,7 @@ func player_can_input() -> bool:
 var player: Dictionary = {
 	"hp": 0,
 	"damage_threshold": 100,
+	"edging_threshold": EdgingRules.DEFAULT_THRESHOLD,
 	"current_damage": 0,
 	"max_energy":10,
 	"current_energy": 0,
@@ -39,6 +40,52 @@ func add_player_stats(save_game_state: SaveGameState) -> void:
 	self.player["status_effects"] = {}
 	self.player["passive_effects"] = save_game_state.get_active_player_passives()
 
+#region Edging
+### The player's BASE edging threshold for THIS encounter, as a share of max pleasure (0..1, see EdgingRules): the save's value,
+### moved by effects that edit it for the rest of the encounter (ChangeEdgingThreshold, the debug keys). It leaves out what statuses
+### and passives add on top, see get_edging_threshold(). add_player_stats() gives the encounter its own copy of the save's value,
+### so changing it here never reaches the save.
+func get_base_edging_threshold() -> float:
+	return EdgingRules.clamp_threshold(float(player.get("edging_threshold", EdgingRules.DEFAULT_THRESHOLD)))
+
+func set_edging_threshold(new_threshold: float) -> void:
+	player["edging_threshold"] = EdgingRules.clamp_threshold(new_threshold)
+
+### The threshold the player is held to right now: the base plus what the player's statuses and passives change
+### (Status_ChangeEdgingThreshold, per stack), kept between 0% and 100%. Everything that asks "is the player on the edge" reads this.
+func get_edging_threshold() -> float:
+	return EdgingRules.clamp_threshold(get_base_edging_threshold() + get_edging_threshold_change_from_effects())
+
+### The sum of every Status_ChangeEdgingThreshold the player's statuses (times their stacks) and passives have, as a share of max pleasure.
+func get_edging_threshold_change_from_effects() -> float:
+	var total_change: float = 0.0
+	var player_statuses: Dictionary = get_player_statuses()
+	for status_id in player_statuses.keys():
+		var status_def: StatusEffectDefinition = AutoloadDatabase.get_status_effect_by_id(status_id)
+		if status_def == null:
+			continue
+		var stacks: int = int(player_statuses[status_id].get("stacks", 1))
+		total_change += _get_edging_threshold_change_of_components(status_def.status_effect_components, stacks)
+	for passive_id in get_active_player_passives():
+		var passive_def: PassiveEffectDefinition = AutoloadDatabase.get_passive_effect_def(passive_id)
+		if passive_def:
+			total_change += _get_edging_threshold_change_of_components(passive_def.modifier_components, 1)
+	return total_change
+
+func _get_edging_threshold_change_of_components(components: Array, stacks: int) -> float:
+	var change: float = 0.0
+	for component in components:
+		if component is Status_ChangeEdgingThreshold:
+			var threshold_component: Status_ChangeEdgingThreshold = component
+			change += threshold_component.get_threshold_change(stacks)
+	return change
+
+### The lowest whole Pleasure that counts as at or above the threshold right now: the threshold applied to this
+### encounter's max pleasure.
+func get_edging_threshold_pleasure() -> int:
+	return EdgingRules.get_threshold_pleasure(int(player.get("damage_threshold", 100)), get_edging_threshold())
+#endregion
+
 func get_active_player_passives() -> Array:
 	if "passive_effects" in player.keys():
 		return player["passive_effects"]
@@ -51,6 +98,19 @@ func get_player_statuses() -> Dictionary:
 func give_player_passive(passive_id: String) -> void:
 	if passive_id not in self.player["passive_effects"]:
 		self.player["passive_effects"].append(passive_id)
+
+### Gives the player passives that only last for this encounter (EncounterDefinition.temporary_player_passives).
+### add_player_stats() hands this game state the save's own passive list, not a copy - the list is copied
+### here first, so these passives can never be written into the save.
+func add_temporary_player_passives(passive_ids: Array[String]) -> void:
+	if passive_ids.is_empty():
+		return
+	player["passive_effects"] = get_active_player_passives().duplicate()
+	for passive_id in passive_ids:
+		if passive_id not in AutoloadDatabase.passive_effect_definitions.keys():
+			push_warning("Encounter wants to give the player the temporary passive '%s', which does not exist." % passive_id)
+			continue
+		give_player_passive(passive_id)
 
 func remove_passive_from_player(passive_id: String) -> void:
 	if "passive_effects" in player.keys():
@@ -140,37 +200,182 @@ func is_action_available(action_id: String) -> bool:
 		return false
 	return true
 
+#region Player blindness
+### Whether the player can't currently see the given kind of information about the opponents (shown to
+### the player as "partners") - true when any status or passive of the player has a Status_BlindPlayer
+### component that hides it. The opponent displays ask this one question; to blind the player from other
+### code, give them a status or passive with such a component (see Status_BlindPlayer).
+func is_opponent_info_hidden(info: Status_BlindPlayer.HiddenInfo) -> bool:
+	for component in _get_player_blind_components():
+		if component.hides(info):
+			return true
+	return false
+
+### Whether the encounter background should be dimmed because of a blinding status or passive.
+func is_player_background_dimmed() -> bool:
+	for component in _get_player_blind_components():
+		if component.dim_background:
+			return true
+	return false
+
+func _get_player_blind_components() -> Array[Status_BlindPlayer]:
+	var blind_components: Array[Status_BlindPlayer] = []
+	for status_id in get_player_statuses().keys():
+		var status_def: StatusEffectDefinition = AutoloadDatabase.get_status_effect_by_id(status_id)
+		if not status_def:
+			continue
+		_add_blind_components(status_def.status_effect_components, blind_components)
+	for passive_id in get_active_player_passives():
+		var passive_def: PassiveEffectDefinition = AutoloadDatabase.get_passive_effect_def(passive_id)
+		if not passive_def:
+			continue
+		_add_blind_components(passive_def.modifier_components, blind_components)
+	return blind_components
+
+func _add_blind_components(components: Array, blind_components: Array[Status_BlindPlayer]) -> void:
+	for component in components:
+		if component is Status_BlindPlayer:
+			blind_components.append(component)
+#endregion
+
+#region Preventing orgasms
+### Whether any status or passive of the player has a Status_PreventPlayerOrgasm component. While it does, Pleasure past the max
+### builds up instead of making the player orgasm (MainCardgame._handle_signal_of_damage_exceeding_threshold()), and an effect that
+### forces an orgasm does nothing. To stop the player's orgasms from other code, give them a status or passive with such a component.
+func player_cannot_orgasm() -> bool:
+	return not get_orgasm_preventing_status_ids().is_empty() or _player_passives_prevent_orgasm()
+
+### The ids of the player's statuses that prevent orgasms (a passive has no status icon, so it is not listed): the icons to flash
+### when an orgasm is blocked.
+func get_orgasm_preventing_status_ids() -> Array:
+	var status_ids: Array = []
+	for status_id in get_player_statuses().keys():
+		var status_def: StatusEffectDefinition = AutoloadDatabase.get_status_effect_by_id(status_id)
+		if status_def and _has_prevent_orgasm_component(status_def.status_effect_components):
+			status_ids.append(status_id)
+	return status_ids
+
+func _player_passives_prevent_orgasm() -> bool:
+	for passive_id in get_active_player_passives():
+		var passive_def: PassiveEffectDefinition = AutoloadDatabase.get_passive_effect_def(passive_id)
+		if passive_def and _has_prevent_orgasm_component(passive_def.modifier_components):
+			return true
+	return false
+
+func _has_prevent_orgasm_component(components: Array) -> bool:
+	for component in components:
+		if component is Status_PreventPlayerOrgasm:
+			return true
+	return false
+#endregion
+
 var reward_cards_from_actions: Dictionary = {} #ActionID, EventCardID
 func add_reward_cards_from_actions(save_game_state: SaveGameState) -> void:
 	self.reward_cards_from_actions = save_game_state.reward_cards_from_actions
 
 #endregion
 #region Opponents
-var opponents_in_encounter_reserves: Dictionary = {} # type_id : number
+### The order the encounter's opponents will enter in (type ids, front = next). Built once when the
+### encounter starts; spawns from the spawn button and the per-turn refill consume it from the front.
+### Summoned opponents never touch it.
+var spawn_queue: Array[String] = []
+### Parallel to spawn_queue: the look each queued opponent will have, rolled when the queue is built so a
+### display of the queue (the rework's opponent queue) shows the opponent that actually enters. An entry is
+### null when the opponent type has no appearance variations.
+var spawn_queue_appearances: Array[OpponentAppearance] = []
+### How many entries have left the front of the queue so far. Also the spawn-order index of the current front,
+### so a display can tell which of the entries it shows are gone.
+var spawn_queue_entries_taken: int = 0
 
-var randomly_spawnable_opponents: Dictionary = {} # type_id : number
-
-var nr_of_scheduled_opponents_spawned: int = 0
-
-func determine_randomly_spawning_opponents(encounter_def: EncounterDefinition) -> void:
-	randomly_spawnable_opponents = opponents_in_encounter_reserves.duplicate()
-	# Reserve opponents used in the fixed spawn order.
-	for opponent_type_id in encounter_def.fixed_spawn_order.values():
-		if opponent_type_id not in randomly_spawnable_opponents:
-			push_error("Fixed spawn '%s' is not present in the encounter reserves." % opponent_type_id)
+func build_spawn_queue(encounter_def: EncounterDefinition) -> void:
+	spawn_queue.clear()
+	spawn_queue_appearances.clear()
+	spawn_queue_entries_taken = 0
+	var remaining_counts: Dictionary[String,int] = {} # type_id : number not yet placed
+	var total: int = 0
+	for opponent_type_id in encounter_def.opponents_in_encounter_reserves.keys():
+		var count: int = encounter_def.opponents_in_encounter_reserves[opponent_type_id]
+		if count <= 0:
 			continue
-		randomly_spawnable_opponents[opponent_type_id] -= 1
-		if randomly_spawnable_opponents[opponent_type_id] < 0:
-			push_error("Encounter reserves contain fewer '%s' than are required by fixed spawns." % opponent_type_id)
-			randomly_spawnable_opponents[opponent_type_id] = 0
-		elif randomly_spawnable_opponents[opponent_type_id] == 0:
-			randomly_spawnable_opponents.erase(opponent_type_id)
-	# Reserve opponents used in forced turn spawns.
-	#for turn in encounter_def.forced_spawns_after_turn.keys():
-		#for opponent_type_id in encounter_def.forced_spawns_after_turn[turn]:
-			#for opp_type_in_reserves in opponents_in_encounter_reserves.keys():
-				#if opp_type_in_reserves == opponent_type_id:
-					#randomly_spawnable_opponents[opp_type_in_reserves] -= 1
+		if opponent_type_id not in AutoloadDatabase.opponent_types:
+			push_error("Encounter reserves contain unknown opponent type '%s'. Not added to the spawn queue." % opponent_type_id)
+			continue
+		remaining_counts[opponent_type_id] = count
+		total += count
+
+	# Fixed spawns come out of the reserves first. Position is 1-based.
+	var fixed_by_position: Dictionary[int,String] = {}
+	var out_of_range_fixed: Array[String] = []
+	var fixed_positions: Array = encounter_def.fixed_spawn_order.keys()
+	fixed_positions.sort()
+	for position: int in fixed_positions:
+		var fixed_type_id: String = encounter_def.fixed_spawn_order[position]
+		if fixed_type_id not in AutoloadDatabase.opponent_types:
+			push_error("Fixed spawn %s is unknown opponent type '%s'. Not added to the spawn queue." % [position, fixed_type_id])
+			continue
+		if remaining_counts.get(fixed_type_id, 0) <= 0:
+			push_error("Fixed spawn %s ('%s') is not covered by the encounter reserves. Not added to the spawn queue." % [position, fixed_type_id])
+			continue
+		remaining_counts[fixed_type_id] -= 1
+		if position < 1 or position > total:
+			push_error("Fixed spawn position %s is outside the spawn queue (1-%s). '%s' is added at the end." % [position, total, fixed_type_id])
+			out_of_range_fixed.append(fixed_type_id)
+			continue
+		fixed_by_position[position] = fixed_type_id
+
+	# Everything else is shuffled. Equivalent to the old weighted pick without replacement.
+	var random_pool: Array[String] = []
+	for opponent_type_id in remaining_counts.keys():
+		for i in remaining_counts[opponent_type_id]:
+			random_pool.append(opponent_type_id)
+	random_pool.shuffle()
+
+	for position in range(1, total + 1):
+		if position in fixed_by_position:
+			spawn_queue.append(fixed_by_position[position])
+		elif not random_pool.is_empty():
+			spawn_queue.append(random_pool.pop_back())
+		else:
+			spawn_queue.append(out_of_range_fixed.pop_front())
+
+	for opponent_type_id in spawn_queue:
+		spawn_queue_appearances.append(AutoloadDatabase.opponent_types[opponent_type_id].get_random_appearance())
+
+func get_spawn_queue() -> Array[String]:
+	return spawn_queue.duplicate()
+func get_upcoming_spawns(count: int) -> Array[String]:
+	return spawn_queue.slice(0, count)
+func get_upcoming_spawn_appearances(count: int) -> Array[OpponentAppearance]:
+	return spawn_queue_appearances.slice(0, count)
+func peek_next_spawn() -> String:
+	if spawn_queue.is_empty():
+		return ""
+	return spawn_queue[0]
+func peek_next_spawn_appearance() -> OpponentAppearance:
+	if spawn_queue_appearances.is_empty():
+		return null
+	return spawn_queue_appearances[0]
+func pop_next_spawn() -> String:
+	if spawn_queue.is_empty():
+		return ""
+	if not spawn_queue_appearances.is_empty():
+		spawn_queue_appearances.pop_front()
+	spawn_queue_entries_taken += 1
+	return spawn_queue.pop_front()
+
+### How many opponents are still to be defeated to win: what is left in the spawn queue plus the active opponents that came out of it.
+### Summoned opponents don't count. The remaining-guys counter starts from this (RemainingOpponentsCounter).
+func get_remaining_queued_opponent_count() -> int:
+	var remaining_count: int = spawn_queue.size()
+	for opponent_instance: OpponentInstance in currently_active_opponents.values():
+		if opponent_instance.spawned_from_spawn_queue:
+			remaining_count += 1
+	return remaining_count
+
+### Win condition: every opponent that came out of the spawn queue has been defeated. Summoned
+### opponents still in the room don't matter.
+func all_queued_opponents_defeated() -> bool:
+	return get_remaining_queued_opponent_count() == 0
 
 var currently_active_opponents: Dictionary = {} # opponent ID - OpponentInstance
 var last_spawned_opponent: OpponentInstance = null
@@ -242,6 +447,9 @@ func is_opponent_unique(opponent_id: String) -> bool:
 
 func record_active_player_passives_at_end_of_game() -> void:
 	encounter_report.record_active_player_passives_at_end_of_game(self)
+
+func record_active_player_statuses_at_end_of_game() -> void:
+	encounter_report.record_active_player_statuses_at_end_of_game(self)
 #endregion
 
 #region Event cards:

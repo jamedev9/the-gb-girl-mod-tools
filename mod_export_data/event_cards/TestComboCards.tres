@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ComboEventCardDefinition" load_steps=9 format=3 uid="uid://blqhy112qxtty"]
+[gd_resource type="Resource" script_class="ComboEventCardDefinition" format=3 uid="uid://blqhy112qxtty"]
 
 [ext_resource type="Script" uid="uid://xwmyihojt71y" path="res://scripts/object_classes/effect_and_target_intention/effect_and_target_intent.gd" id="1_4jnj3"]
 [ext_resource type="Texture2D" uid="uid://dh2vcmdaglojv" path="res://mod_export_data/images/dec04391f1ef2830f16e804c46397160.jpeg" id="1_af25i"]

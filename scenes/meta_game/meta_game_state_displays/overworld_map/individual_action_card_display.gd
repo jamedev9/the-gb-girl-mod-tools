@@ -35,6 +35,20 @@ func _refresh_text() -> void:
 		_show_next_unlock_reward(main_game.meta_game.save_game_state)
 
 
+const REWORK_ACTION_CARD_SCENE_PATH: String = "res://publishable_rework/cardgame_ui/action_cards/action_card_rework.tscn"
+
+### ActionCard, so everything below keeps working through the same action_card reference. Call it
+func replace_action_card_with_rework_card() -> void:
+	var rework_card_scene: PackedScene = load(REWORK_ACTION_CARD_SCENE_PATH)
+	var rework_card: ActionCard = rework_card_scene.instantiate()
+	var card_parent: Node = action_card.get_parent()
+	var card_index: int = action_card.get_index()
+	card_parent.remove_child(action_card)
+	action_card.queue_free()
+	card_parent.add_child(rework_card)
+	card_parent.move_child(rework_card, card_index)
+	action_card = rework_card
+
 func update_displayed_action_card(action_card_id: String,save_game_state: SaveGameState) -> void:
 	self.displayed_action_id = action_card_id
 	action_card.display_action(action_card_id)
@@ -70,6 +84,7 @@ func update_when_save_game_changes(save_game_state: SaveGameState) -> void:
 	### is the reliable equivalent in this context.
 	if action_card:
 		action_card.refresh_picture_override()
+		action_card.refresh_effect_displays()
 	if displayed_action_id in save_game_state.currently_used_player_actions:
 		yes_no_button.text = "Yes"
 		button_panel.add_theme_stylebox_override("panel",yes_style)

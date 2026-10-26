@@ -8,6 +8,7 @@ var represented_action: OpponentActionDefinition
 func display_action(action: OpponentActionDefinition) -> void:
 	self.represented_action =  action
 	picture.texture = represented_action.picture
+	UnknownMark.set_shown_on(picture, represented_action is UnknownOpponentAction)
 
 func _on_mouse_entered():
 	if not represented_action:

@@ -1,5 +1,4 @@
-res://scenes/meta_game/unlock_reward_display/unlock_requirement_panel.gd
-res://mod_export_data/videos/1_BJ_BLONDE.tres
-res://mod_export_data/videos/2_BLOWBANG_BLONDE.tres
-res://mod_export_data/image_replacements/ReplaceImagesSetExample.tres
-res://mod_export_data/passives/CarolinaPassive.tres
+res://tools/modding/mod_exporter/mod_exporter.gd
+res://mod_export_data/event_cards/TestComboCards.tres
+res://mod_export_data/event_cards/TestCard_GivePleasure.tres
+res://mod_export_data/rewards/GivePlayer_TestCardPleaseHim.tres

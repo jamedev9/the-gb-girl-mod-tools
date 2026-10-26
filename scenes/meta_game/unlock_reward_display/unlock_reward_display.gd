@@ -6,7 +6,7 @@ var reward_def: RewardDefinition
 var displayed_on_encounter: EncounterDefinition
 
 @export var reward_name: RichTextLabel
-@export var reward_description: RichTextLabel
+@export var reward_description: DescriptionLabel
 @export var reward_picture: TextureRect
 @export var check_box: TextureRect
 @export var reward_unlock_container: Container
@@ -30,12 +30,17 @@ func display_reward_information(encounter_def: EncounterDefinition,given_reward_
 	displayed_on_encounter = encounter_def
 	reward_id = given_reward_def.reward_id
 	reward_def = given_reward_def
-	reward_picture.texture = given_reward_def.reward_picture
+	if PlayModeSettings.current == PlayModeSettings.Mode.FULL_REWORK:
+		### The rework's rewards have no pictures; hide the node (rather than leave the scene's
+		### placeholder icon showing) and don't assign a texture.
+		reward_picture.hide()
+	else:
+		reward_picture.texture = given_reward_def.reward_picture
 	_update_text_boxes(given_reward_def)
 
 func _update_text_boxes(given_reward_def: RewardDefinition) -> void:
 	reward_name.text = "[b]"+given_reward_def.get_reward_name()+"[/b]"
-	reward_description.text = given_reward_def.get_description()	
+	reward_description.show_segments(given_reward_def.get_description_segments())
 
 func update_on_meta_game_enter_finished(save_game_state: SaveGameState) -> void:
 #func update_when_save_game_changes(save_game_state: SaveGameState) -> void:

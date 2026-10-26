@@ -1,0 +1,24 @@
+{
+	"_class": "EventCardDefinition",
+	"always_in_opening_hand": false,
+	"card_name": "Please Him",
+	"card_picture": "dec04391f1ef2830f16e804c46397160.jpeg",
+	"card_type_id": "testmodcard_givepleasure",
+	"category": "DEPRAVITY",
+	"description": "Give 20 Pleasure to target.",
+	"effect_intents": [
+		{
+			"_class": "EffectAndTargetIntent",
+			"effect_intent": {
+				"_class": "DealDamageEffect",
+				"damage": 20,
+				"intent_effect_id": "",
+				"scale_with_stacks": false
+			},
+			"targeting_intent": 2,
+			"targeting_rules": []
+		}
+	],
+	"energy_cost": 1,
+	"once_per_game": false
+}

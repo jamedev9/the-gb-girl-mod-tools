@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="EncounterDefinition" format=3 uid="uid://bqa6tjfp07i3k"]
+
+[ext_resource type="Script" uid="uid://3ptqijs4tuix" path="res://scripts/object_classes/meta_game_objects/encounter_definitions/encounter_definition.gd" id="1_i72gl"]
+[ext_resource type="Texture2D" uid="uid://jnc3dpc5pvn1" path="res://mod_export_data/images/selfie_1.jpg" id="1_sivxn"]
+[ext_resource type="Script" uid="uid://bmw7b6wcns17f" path="res://scripts/object_classes/meta_game_objects/unlock_conditions/unlock_condition.gd" id="2_sivxn"]
+
+[resource]
+script = ExtResource("1_i72gl")
+map_region_id = "testregion_one"
+encounter_id = "modded_encounter_one"
+encounter_display_name = "Modded Encounter One"
+encounter_description = "This is a test encounter."
+encounter_picture = ExtResource("1_sivxn")
+music_track_id = "blow_him_hard"
+opponents_in_encounter_reserves = Dictionary[String, int]({
+"beach_boy": 2
+})
+min_simultaneous_opponents = 2
+metadata/_custom_type_script = "uid://3ptqijs4tuix"

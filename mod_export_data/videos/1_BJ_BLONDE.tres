@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="VideoClip" load_steps=2 format=3 uid="uid://c4erdjnisbpt7"]
+[gd_resource type="Resource" script_class="VideoClip" format=3 uid="uid://c4erdjnisbpt7"]
 
 [ext_resource type="Script" uid="uid://c17prj51bpbqp" path="res://resources/videos/database/video_clip.gd" id="1_q84q3"]
 

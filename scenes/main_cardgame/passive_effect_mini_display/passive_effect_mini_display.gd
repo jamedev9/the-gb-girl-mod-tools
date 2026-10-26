@@ -9,6 +9,7 @@ var represented_target: Variant
 func display_passive(passive_definition: PassiveEffectDefinition) -> void:
 	self.represented_passive_effect =  passive_definition
 	picture.texture = passive_definition.picture
+	UnknownMark.set_shown_on(picture, passive_definition is UnknownPassiveEffect)
 
 
 func _on_mouse_entered():

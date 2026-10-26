@@ -9,6 +9,10 @@ class_name ActionCard
 @export var action_picture: TextureRect
 @export var status_pics_container: Container
 @export var action_disabled_overlay: PanelContainer
+### Optional - instance scenes/main_cardgame/reusable_components/description_label.tscn and assign
+### it here. It shows the generated description; no shipped scene assigns it yet (the card face is
+### numeric/iconographic, and the description is in the action's tooltip).
+@export var description_label: RichTextLabel
 #endregion
 
 @export var represented_action_id: String
@@ -17,6 +21,10 @@ var action_is_disabled: bool = false
 
 #@export var status_mini_pic_scene: PackedScene = preload("res://scenes/main_cardgame/status_effects/status_effect_mini_display.tscn")
 @export var status_mini_pic_scene: PackedScene
+
+### Status icons _redraw_effect_displays() added to status_pics_container, so it can remove exactly
+### those again (the container may hold other, scene-authored children).
+var _status_pic_nodes: Array[Node] = []
 
 var _original_position: Vector2
 var _drag_offset: Vector2  = Vector2(0,0)
@@ -75,6 +83,7 @@ func update_class_specific_displays(game_state: GameState) -> void:
 	_make_unavailable_after_game_end(game_state)
 	show_if_disabled_by_status(game_state)
 	refresh_picture_override()
+	refresh_effect_displays()
 
 ### Re-evaluates the picture override now that main_game/meta_game/save_game_state are
 ### guaranteed valid - display_action() can run before this node is added to the tree, when
@@ -109,29 +118,66 @@ func display_action(action_id:String) -> void:
 		AutoloadDatabase.run_when_content_loaded(Callable(self,"display_action").bind(action_id))
 		return
 	self.represented_action_id = action_id
-	self.represented_action = AutoloadDatabase.get_player_action_by_id(action_id)
-	
+	self.represented_action = get_effective_player_action(action_id)
+
 	if not represented_action:
 		return
 	_set_action_name_text(represented_action)
 	#action_type.text = represented_action.action_name
 	move_energy.text = str(represented_action.move_energy)
 	energy_per_round.text = str(represented_action.energy_per_round)
-	move_damage.text = str(represented_action.base_damage)
-	for status_effect in represented_action.statuses_to_apply:
-		var new_status_pic: StatusEffectMiniDisplay = status_mini_pic_scene.instantiate()
-		new_status_pic.display_status(
-			status_effect.status_definition,
-			status_effect.status_duration,
-			status_effect.number_of_stacks)
-		status_pics_container.add_child(new_status_pic)
-	
+	_redraw_effect_displays()
+
 	var picture: Texture2D
 	picture = ImageOverrideManager.get_override_texture(ImageOverrideManager.ReplacementType.ACTION_CARD_IMAGE,action_id,get_selected_character_id())
 	if not picture:
 		picture = represented_action.picture
 		
 	action_picture.texture = picture
+
+### Everything on the card that depends on the action's EFFECTS (as opposed to its static fields):
+### the damage number, status icons and description. Safe to call repeatedly - the status icons
+### this created last time are removed first.
+func _redraw_effect_displays() -> void:
+	move_damage.text = str(represented_action.get_displayed_damage())
+	for status_pic in _status_pic_nodes:
+		if is_instance_valid(status_pic):
+			status_pics_container.remove_child(status_pic)
+			status_pic.queue_free()
+	_status_pic_nodes.clear()
+	for status_effect in represented_action.get_displayed_statuses():
+		var status_definition: StatusEffectDefinition = status_effect.get_status_definition()
+		if status_definition == null:
+			continue
+		var new_status_pic: StatusEffectMiniDisplay = status_mini_pic_scene.instantiate()
+		new_status_pic.display_status(
+			status_definition,
+			status_effect.status_duration,
+			status_effect.number_of_stacks)
+		status_pics_container.add_child(new_status_pic)
+		_status_pic_nodes.append(new_status_pic)
+	_update_description_label()
+
+### Picks up changes to the action's effects after display_action() - a progressed action (see
+### SaveGameState.get_effective_player_action()), or display_action() having run before the save
+### was reachable and so showing the plain template. Cheap when nothing changed (the effective
+### action is the same cached object), so it's fine to call on every refresh. Not a Cardgame_UI_Element
+### signal handler: the meta-game never fires game_state_changed, so
+### IndividualActionCardDisplay.update_when_save_game_changes() calls this directly.
+func refresh_effect_displays() -> void:
+	if represented_action_id == "":
+		return
+	var effective_action: PlayerAction = get_effective_player_action(represented_action_id)
+	if not effective_action or effective_action == represented_action:
+		return
+	represented_action = effective_action
+	_redraw_effect_displays()
+
+func _update_description_label() -> void:
+	if not description_label:
+		return
+	description_label.visible = true
+	description_label.text = DescriptionRenderer.to_bbcode(represented_action.get_description_segments())
 
 func _set_action_name_text(given_action_type: PlayerAction) -> void:
 	action_type.text = given_action_type.get_action_name()
@@ -197,9 +243,14 @@ func _get_drag_data(_at_position: Vector2) -> Variant:
 	preview_card.position = -_at_position
 
 	preview_root.add_child(preview_card)
+	_prepare_drag_preview(preview_root)
 	set_drag_preview(preview_root)
 	change_animation_state(AnimationState.DRAGGING)
 	return self
+
+### Hook for subclasses to adjust the drag preview before it is handed to set_drag_preview().
+func _prepare_drag_preview(_preview_root: Control) -> void:
+	pass
 	
 func change_animation_state(new_state: AnimationState) -> void:
 	### Public function called by Animation Handlers and the Event Card Hand to alert that the card is changing state

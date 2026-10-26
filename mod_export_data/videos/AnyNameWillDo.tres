@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="VideoClip" format=3 uid="uid://ydo3yqln18go"]
+
+[ext_resource type="Script" uid="uid://c17prj51bpbqp" path="res://resources/videos/database/video_clip.gd" id="1_urpdi"]
+
+[resource]
+script = ExtResource("1_urpdi")
+video_file = "uid://o3pnhrbdg1w7"
+metadata/_custom_type_script = "uid://c17prj51bpbqp"

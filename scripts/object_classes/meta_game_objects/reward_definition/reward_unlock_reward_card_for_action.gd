@@ -1,8 +1,12 @@
+@tool
 extends RewardDefinition
 class_name Reward_UnlockRewardCardForActions
 
 @export var reward_card_ids: String
 @export var action_ids: Array[String]
+
+func get_referenced_content_ids() -> Dictionary:
+	return {"cards": [reward_card_ids], "actions": action_ids.duplicate()}
 
 func apply_reward(save_game_state:SaveGameState) -> void:
 	for action_id in action_ids:
@@ -17,3 +21,6 @@ func reward_is_hidden_from_player(save_game_state: SaveGameState) -> bool:
 
 func get_action_ids_required_by_this_reward() -> Array[String]:
 	return action_ids
+
+func get_card_permanence_hints() -> Dictionary:
+	return {reward_card_ids: CardInstance.CardPermanence.REWARD}

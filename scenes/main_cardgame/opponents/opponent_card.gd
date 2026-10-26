@@ -1,3 +1,4 @@
+@tool
 extends Cardgame_UI_Element
 class_name OpponentCard
 
@@ -68,6 +69,9 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_TRANSLATION_CHANGED:
 		_refresh_text()
 	if what == NOTIFICATION_DRAG_END:
+		if not active_player_action_pic:
+			#push_warning("active_player_action_pic is not set for opponent card")
+			return
 		active_player_action_pic.modulate.a = 1.0
 
 func _refresh_text() -> void:
@@ -145,6 +149,7 @@ func display_opponent(game_state: GameState,given_opponent_id: String) -> void:
 	self.opponent_id =  given_opponent_id
 	self.displayed_opponent_type = game_state.get_active_opponent_type(given_opponent_id)
 	displayed_opponent_instance = game_state.get_opponent_instance(given_opponent_id)
+	_read_player_blindness(game_state)
 	_show_opponent_type_info(displayed_opponent_type)
 	_handle_player_action_card(game_state)
 	_handle_upcoming_opponent_action(game_state,given_opponent_id)
@@ -155,14 +160,18 @@ func display_opponent(game_state: GameState,given_opponent_id: String) -> void:
 	_register_self_as_node_representing_opponent_id(given_opponent_id)
 	simple_pleasure_bar.initialize_values(displayed_opponent_type.max_damage)
 	refresh_orgasm_display()
+	_apply_player_blindness_to_displays()
 
 
 func _add_idle_picture_of_opponents_cock(given_opponent_type: OpponentType) -> void:
+	if not idle_picture:
+		#push_warning("idle_picture not set for opponent card")
+		return
 	var idle_texture: Texture2D = given_opponent_type.get_cock_picture()
 	idle_picture.texture = idle_texture
 	
 func _change_background_color(given_opponent_type: OpponentType) -> void:
-	background_color.color = given_opponent_type.get_opponent_color()
+	background_color.color = _get_displayed_background_color(given_opponent_type)
 
 func _register_self_as_node_representing_opponent_id(given_opponent_id: String) -> void:
 	main_game.entity_registry.register_entity(given_opponent_id,self)
@@ -179,7 +188,8 @@ func update_opponent_display(game_state: GameState) -> void:
 	var opponent_instance: OpponentInstance = game_state.get_opponent_instance(self.opponent_id)
 	if opponent_instance == null:
 		return
-		
+
+	_read_player_blindness(game_state)
 	_set_opponent_picture_from_type(opponent_instance.opponent_type)
 	_display_opponent_type_name(opponent_instance.opponent_type)
 	_handle_player_action_card(game_state)
@@ -187,16 +197,93 @@ func update_opponent_display(game_state: GameState) -> void:
 	_handle_passive_effects(displayed_opponent_type)
 	_handle_active_status_effects(game_state,self.opponent_id)
 	refresh_orgasm_display()
+	_apply_player_blindness_to_displays()
 
 func _show_opponent_type_info(given_opponent_type: OpponentType) -> void:
 	_set_opponent_picture_from_type(given_opponent_type)
-	opponent_name.text = displayed_opponent_instance.opponent_name
+	_display_opponent_name()
 	_display_opponent_type_name(given_opponent_type)
 
+func _display_opponent_name() -> void:
+	if not opponent_name or not displayed_opponent_instance:
+		return
+	if _player_cant_see_name:
+		opponent_name.text = tr(HIDDEN_INFO_TEXT_KEY)
+	else:
+		opponent_name.text = displayed_opponent_instance.opponent_name
+
 func _display_opponent_type_name(given_opponent_type: OpponentType) -> void:
-	opponent_type.text = given_opponent_type.get_opponent_type_name()
+	if _player_cant_see_type:
+		opponent_type.text = tr(HIDDEN_INFO_TEXT_KEY)
+	else:
+		opponent_type.text = given_opponent_type.get_opponent_type_name()
+
+#region Player blindness (Status_BlindPlayer)
+const HIDDEN_INFO_TEXT_KEY: String = "UI_OPPONENT_INFO_HIDDEN"
+
+var _player_cant_see_pleasure: bool = false
+var _player_cant_see_type: bool = false
+var _player_cant_see_visuals: bool = false
+var _player_cant_see_name: bool = false
+var _player_cant_see_upcoming_action: bool = false
+var _player_cant_see_passives: bool = false
+
+### Shown instead of the partner type's colour while the visuals are hidden (alpha is kept).
+const BLINDED_BACKGROUND_GRAY: float = 0.5
+
+### Remembers what the player can't see right now. Kept apart from applying it, because the name, type
+### and picture are also set by other functions (and by translation changes) in between.
+func _read_player_blindness(game_state: GameState) -> void:
+	_player_cant_see_pleasure = game_state.is_opponent_info_hidden(Status_BlindPlayer.HiddenInfo.PLEASURE)
+	_player_cant_see_type = game_state.is_opponent_info_hidden(Status_BlindPlayer.HiddenInfo.OPPONENT_TYPE)
+	_player_cant_see_visuals = game_state.is_opponent_info_hidden(Status_BlindPlayer.HiddenInfo.OPPONENT_VISUALS)
+	_player_cant_see_name = game_state.is_opponent_info_hidden(Status_BlindPlayer.HiddenInfo.OPPONENT_NAME)
+	_player_cant_see_upcoming_action = game_state.is_opponent_info_hidden(Status_BlindPlayer.HiddenInfo.UPCOMING_ACTION)
+	_player_cant_see_passives = game_state.is_opponent_info_hidden(Status_BlindPlayer.HiddenInfo.PASSIVES)
+
+### Re-reads and applies what the player can't see, without touching anything else on the card. Called
+### directly (OpponentsContainer.refresh_player_blindness) so blinding/unblinding does not depend on the
+### full update_opponent_display() chain, which can be skipped while cards are moving (see
+### MainCardgame.refresh_player_blindness_displays()).
+func refresh_player_blindness(game_state: GameState) -> void:
+	if not displayed_opponent_type or not displayed_opponent_instance:
+		return
+	var passives_were_hidden: bool = _player_cant_see_passives
+	_read_player_blindness(game_state)
+	if _player_cant_see_passives != passives_were_hidden:
+		_handle_passive_effects(displayed_opponent_type)
+	_apply_player_blindness_to_displays()
+
+func _apply_player_blindness_to_displays() -> void:
+	_display_opponent_name()
+	if displayed_opponent_type:
+		_display_opponent_type_name(displayed_opponent_type)
+		_change_background_color(displayed_opponent_type)
+	if simple_pleasure_bar:
+		simple_pleasure_bar.set_pleasure_hidden(_player_cant_see_pleasure)
+	_set_opponent_visuals_hidden(_player_cant_see_visuals)
+	_show_upcoming_action()
+
+### The colour the card's background should have: the partner type's own, or neutral gray while the
+### visuals are hidden (the colour would give the type away).
+func _get_displayed_background_color(given_opponent_type: OpponentType) -> Color:
+	var type_color: Color = given_opponent_type.get_opponent_color()
+	if _player_cant_see_visuals:
+		return Color(BLINDED_BACKGROUND_GRAY, BLINDED_BACKGROUND_GRAY, BLINDED_BACKGROUND_GRAY, type_color.a)
+	return type_color
+
+### The picture is made see-through instead of hidden, so the card layout stays the same. Subclasses
+### with other visuals (the rework card's figure) extend this.
+func _set_opponent_visuals_hidden(hidden: bool) -> void:
+	if not opponent_picture:
+		return
+	opponent_picture.self_modulate.a = 0.0 if hidden else 1.0
+#endregion
 
 func _set_opponent_picture_from_type(given_opponent_type: OpponentType) -> void:
+	if not opponent_picture:
+		#push_warning("Opponent picture node is not set!")
+		return
 	var picture: Texture2D
 	picture = ImageOverrideManager.get_override_texture(ImageOverrideManager.ReplacementType.OPPONENT_TYPE_IMAGE,given_opponent_type.opponent_type_id,get_selected_character_id())
 	if not picture:
@@ -221,6 +308,12 @@ func _handle_player_action_card(game_state:GameState) -> void:
 
 
 func _display_active_player_action(action: PlayerAction) -> void:
+	if not active_player_action_pic:
+		#push_warning("active_player_action_pic is not set for opponent card")
+		return
+	if not idle_picture:
+		#push_warning("idle_picture not set for opponent card")
+		return
 	_show_matching_video(action)
 	if action == null:
 		active_player_action_pic.texture = null
@@ -233,9 +326,15 @@ func _display_active_player_action(action: PlayerAction) -> void:
 	_pop_video_player()
 
 func _pop_video_player() -> void:
+	if not video_panel_container:
+		#push_warning("video_panel_container not set for opponent card")
+		return
 	AnimationHelper_NodeFlasher._pop_node(video_panel_container,POP_SIGNIFICANCE,POP_SCALE,POP_DURATION)
 
 func _show_matching_video(action: PlayerAction) -> void:
+	if not player_action_video:
+		#push_warning("player_action_video not set for opponent card")
+		return
 	if not main_game.settings_manager.get_videos_on_opponents_setting():
 		_hide_and_stop_video()
 		_expand_static_action_image(action)
@@ -254,11 +353,18 @@ func _show_matching_video(action: PlayerAction) -> void:
 		return
 	self.player_action_video.visible = true
 	self.player_action_video.set_video_path(clip.video_file) ### auto-plays: enable_auto_play=true in the scene
+	VideoPlayerSystem.register_clip_as_seen(clip)
 	CombatProfiler.note_video_started(opponent_id)
 	CombatProfiler.log_event("VIDEO", "opponent %s started video for action %s" % [opponent_id, action.action_id])
 	_shrink_static_action_image()
 
 func _expand_static_action_image(action: PlayerAction) -> void:
+	if not active_player_action_pic:
+		#push_warning("active_player_action_pic is not set for opponent card")
+		return
+	if not video_and_idle_pic:
+		#push_warning("video_and_idle_pic not set for opponent card")
+		return
 	video_and_idle_pic.visible = false
 	var action_pic_panel: Control = active_player_action_pic.get_parent()
 	action_pic_panel.visible = (action != null)
@@ -269,6 +375,12 @@ func _expand_static_action_image(action: PlayerAction) -> void:
 	active_player_action_pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 
 func _shrink_static_action_image() -> void:
+	if not active_player_action_pic:
+		#push_warning("active_player_action_pic is not set for opponent card")
+		return
+	if not video_and_idle_pic:
+		#push_warning("video_and_idle_pic not set for opponent card")
+		return
 	video_and_idle_pic.visible = true
 	var action_pic_panel: Control = active_player_action_pic.get_parent()
 	action_pic_panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -288,13 +400,22 @@ func _handle_upcoming_opponent_action(game_state:GameState,_opponent_id:String) 
 	update_displayed_action(upcoming_action)
 
 func update_displayed_action(upcoming_action: OpponentActionDefinition) -> void:
-	var action_damage: int = 0
-	for effect in upcoming_action.effect_intents:
-		if effect.effect_intent is DealDamageEffect:
-			action_damage += effect.effect_intent.damage
-		elif effect.effect_intent is RandomlyHealOrDealDamage:
-			action_damage += effect.effect_intent.damage
-	action_mini_display.display_action(upcoming_action)
+	_real_upcoming_action = upcoming_action
+	_show_upcoming_action()
+
+### The Move the partner will really do next, kept so the display can switch between it and the "?"
+### Move when the player is blinded/unblinded without the game announcing the Move again.
+var _real_upcoming_action: OpponentActionDefinition
+
+func _show_upcoming_action() -> void:
+	if not _real_upcoming_action:
+		return
+	var shown_action: OpponentActionDefinition = _real_upcoming_action
+	var action_damage: int = EffectAndTargetIntent.sum_displayed_damage(_real_upcoming_action.effect_intents)
+	if _player_cant_see_upcoming_action:
+		shown_action = UnknownOpponentAction.get_shared()
+		action_damage = 0
+	action_mini_display.display_action(shown_action)
 	#print("Updating displayed action")
 	_set_upcoming_damage_label_text(action_damage)
 
@@ -339,13 +460,19 @@ func _handle_passive_effects(given_opponent_type: OpponentType) -> void:
 		if child is PassiveEffectMiniDisplay:
 			child.queue_free()
 			freed_count += 1
-	for passive_id in given_opponent_type.passive_effects:
-		var passive: PassiveEffectDefinition = AutoloadDatabase.passive_effect_definitions[passive_id]
+	var passives_to_display: Array[PassiveEffectDefinition] = []
+	if _player_cant_see_passives:
+		### The whole list collapses to one "?" Passive, so the player can't tell how many (or if any) there are.
+		passives_to_display.append(UnknownPassiveEffect.get_shared())
+	else:
+		for passive_id in given_opponent_type.passive_effects:
+			passives_to_display.append(AutoloadDatabase.passive_effect_definitions[passive_id])
+	for passive in passives_to_display:
 		var new_mini_display: PassiveEffectMiniDisplay = passive_effect_mini_display.instantiate()
 		new_mini_display.display_passive(passive)
 		container_for_status_displays.add_child(new_mini_display)
 	CombatProfiler.end_timer(timer_id, "UI_REBUILD",
-		"freed=%d instantiated=%d" % [freed_count, given_opponent_type.passive_effects.size()])
+		"freed=%d instantiated=%d" % [freed_count, passives_to_display.size()])
 
 ### Diffs against game_state instead of wiping and rebuilding every status display, so this
 ### doesn't fight with animation_status_effect_applied_to_target.gd/refresh_status_on_target.gd,
@@ -454,11 +581,16 @@ func _get_drag_data(_at_position: Vector2) -> Variant:
 	preview_card.position = -_at_position-_drag_offset
 
 	preview_root.add_child(preview_card)
+	_prepare_drag_preview(preview_root)
 	set_drag_preview(preview_root)
 	### Signal to container:
 	emit_signal("action_began_dragging",self.active_player_action_id,self)
-	
+
 	return action_card
+
+### Hook for subclasses to adjust the drag preview before it is handed to set_drag_preview().
+func _prepare_drag_preview(_preview_root: Control) -> void:
+	pass
 
 
 func _opponent_has_action() -> bool:
@@ -466,6 +598,9 @@ func _opponent_has_action() -> bool:
 #endregion
 
 func _clear_video_if_no_action_is_active(game_state: GameState) -> void:
+	if not player_action_video:
+		#push_warning("player_action_video not set for opponent card")
+		return
 	if ActionManager.get_action_assigned_to_opponent(game_state,self.opponent_id) == "":
 		_hide_and_stop_video()
 	else:
@@ -476,6 +611,9 @@ func _clear_video_if_no_action_is_active(game_state: GameState) -> void:
 ## built-in VideoStreamPlayer, which kept decoding in the background regardless of
 ## visibility - see git history for that bug and the CombatProfiler work that caught it).
 func _hide_and_stop_video() -> void:
+	if not player_action_video:
+		#push_warning("player_action_video not set for opponent card")
+		return
 	if player_action_video.is_playing:
 		CombatProfiler.note_video_still_playing_while_hidden(opponent_id)
 	player_action_video.visible = false
@@ -483,10 +621,30 @@ func _hide_and_stop_video() -> void:
 	CombatProfiler.note_video_stopped(opponent_id)
 
 func get_action_card_movement_location() -> Vector2: # global position
+	if not player_action_video:
+		#push_warning("player_action_video not set for opponent card")
+		return self.global_position ### This needs to be changed once we have the reworked card finished
 	return player_action_video.global_position
+
+func get_action_source_node() -> Control: # node that player action effects (damage, healing) animate from
+	return player_action_video
+
+func get_action_source_position() -> Vector2: # global position
+	return global_position + 0.5*size
 
 func get_pleasure_bar_location() -> Vector2:
 	return current_damage_container.global_position+current_damage_container.size*0.5
+
+func hide_player_action_video() -> void:
+	if not player_action_video:
+		return
+	player_action_video.visible = false
+func clear_active_player_action_id() -> void:
+	if not active_player_action_id:
+		return
+	active_player_action_id = ""
+
+
 
 #region Dragging stop:
 func disable_dragging() -> void:

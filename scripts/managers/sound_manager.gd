@@ -78,7 +78,7 @@ func update_volume_for_audio_server(bus_index: int,new_volume_percentage: float)
 
 #region Music:
 func play_encounter_music(encounter_def: EncounterDefinition) -> void:
-	play_audio(encounter_def.encounter_music,
+	play_audio(encounter_def.get_encounter_music(),
 	"encounter_music",AudioBuses.MUSIC,
 	FADE_DURATION,
 	MUSIC_VOLUME_DB_DELTA)
@@ -117,6 +117,8 @@ func play_audio(
 	self.add_child(audio_player)
 	match audio.get_class():
 		"AudioStreamMP3":
+			audio_player.stream.loop = true
+		"AudioStreamOggVorbis": ### Mod music (Utils.load_audio_stream_from_path()).
 			audio_player.stream.loop = true
 		"AudioStreamWAV":
 			audio_player.stream.loop_mode = AudioStreamWAV.LoopMode.LOOP_FORWARD

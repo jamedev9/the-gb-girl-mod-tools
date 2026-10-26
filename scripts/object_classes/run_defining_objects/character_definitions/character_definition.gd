@@ -21,7 +21,9 @@ class_name CharacterDefinition
 @export var starting_ally_card: String = ""
 @export var starting_orgasm_card: String = ""
 
-var is_modded: bool = false
+### Set by AutoloadDatabase on characters loaded from a mod. @export_storage (stored, not shown in the Inspector) so
+### duplicate() keeps it.
+@export_storage var is_modded: bool = false
 
 func apply_to_save_game(save_game_state: SaveGameState) -> void:
 	if character_id:
@@ -102,7 +104,7 @@ func to_json_dict() -> Dictionary:
 		"character_class_name": character_class_name,
 		"character_name": character_name,
 		"character_age": character_age,
-		"portrait_image_path": resolve_to_res_path(portrait_image_path) , #.get_file(), ### store filename only
+		"portrait_image_path": resolve_to_res_path(portrait_image_path, resource_path) , #.get_file(), ### store filename only
 		"video_participant_tags": VideoClip._convert_participant_tags_to_string(video_participant_tags,character_id),
 		"starting_passives": starting_passives,
 		"starting_actions": starting_actions,

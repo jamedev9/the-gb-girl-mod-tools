@@ -17,6 +17,16 @@ var opponents_defeated_each_turn: Dictionary[int,int] #Turn #, count
 var active_opponents_at_turn_end_log: Dictionary[int, Dictionary] # turn, active opponents
 var reason_for_defeat: Dictionary = {} #Opponent ID, variant (effect context effect origin)
 var active_player_passives_at_end_of_game: Array = []
+### The statuses the player had when the encounter ended: status id -> stacks (a status that does not stack counts as 1).
+### Plain values, no references. See record_active_player_statuses_at_end_of_game().
+var active_player_statuses_at_end_of_game: Dictionary = {}
+
+### What finished each defeated opponent: opponent ID -> {"kind": DefeatSourceKind, "id": String}. The id is the
+### Action/Event Card/Status/Passive that did it (empty for OTHER). Kept as plain values, no references.
+enum DefeatSourceKind {PLAYER_ACTION, EVENT_CARD, STATUS_EFFECT, PASSIVE, OTHER}
+var defeat_sources: Dictionary = {}
+### The highest the player's Pleasure got, as a percentage of their maximum (an orgasm counts as 100 or more).
+var highest_player_pleasure_percent: float = 0.0
 
 #endregion
 
@@ -45,6 +55,8 @@ func record_defeated_opponent(
 		opponents_defeated[opponent_type_id] = 1
 	else:
 		opponents_defeated[opponent_type_id] += 1
+	if opponent_id not in defeat_sources.keys(): ### Let it be overwritten elsewhere if needed
+		set_defeat_source(opponent_id,context)
 	if opponent_id not in reason_for_defeat.keys(): ### Let it be overwritten elsewhere if needed
 		reason_for_defeat[opponent_id] = context.effect_origin
 	if game_state.opponent_was_defeated_by_player_action(opponent_id,action_on_opponent):
@@ -54,6 +66,51 @@ func record_defeated_opponent(
 
 func set_defeat_reason(opponent_id,effect_origin) -> void:
 	reason_for_defeat[opponent_id] = effect_origin
+
+### Remembers what finished this opponent, from the effect context that did the damage. Called when the
+### damage lands (overwrites), and as a fallback when the defeat is recorded.
+func set_defeat_source(opponent_id: String, context: EffectContext) -> void:
+	if context == null:
+		return
+	defeat_sources[opponent_id] = _get_defeat_source_from_context(context)
+	if OS.is_debug_build():
+		var source: Dictionary = defeat_sources[opponent_id]
+		print("EncounterReport: %s finished by %s '%s'" % [
+			opponent_id,DefeatSourceKind.keys()[source["kind"]],source["id"]])
+
+### Passives/statuses come first: a passive reacting to a card's damage carries the card too, but it is the
+### passive that did the damage. "Trigger [action]" event cards count as the Action, since that is what resolves.
+static func _get_defeat_source_from_context(context: EffectContext) -> Dictionary:
+	if context.effect_origin is PlayerAction:
+		return {"kind": DefeatSourceKind.PLAYER_ACTION, "id": context.id_of_effect_origin}
+	if context.status_sending_context:
+		return {"kind": DefeatSourceKind.STATUS_EFFECT, "id": context.status_sending_context.status_id}
+	if context.passive_sending_context:
+		return {"kind": DefeatSourceKind.PASSIVE, "id": context.passive_sending_context.passive_id}
+	if context.event_card_causing_effect:
+		return {"kind": DefeatSourceKind.EVENT_CARD, "id": context.event_card_causing_effect.card_id}
+	return {"kind": DefeatSourceKind.OTHER, "id": ""}
+
+### Number of defeated opponents finished by the given kind of source. If source_ids is not empty, only
+### those specific Actions/Cards/Statuses/Passives count.
+func get_nr_of_defeats_by_source(kind: DefeatSourceKind, source_ids: Array[String] = []) -> int:
+	var count: int = 0
+	for opponent_id in defeat_sources.keys():
+		var source: Dictionary = defeat_sources[opponent_id]
+		if source["kind"] != kind:
+			continue
+		if not source_ids.is_empty() and source["id"] not in source_ids:
+			continue
+		count += 1
+	return count
+
+### Called whenever the player gains Pleasure. current_pleasure is the value before any orgasm reset.
+func record_player_pleasure(current_pleasure: int, max_pleasure: int) -> void:
+	if max_pleasure <= 0:
+		return
+	var percent: float = 100.0 * float(current_pleasure) / float(max_pleasure)
+	if percent > highest_player_pleasure_percent:
+		highest_player_pleasure_percent = percent
 
 func get_reason_for_defeat(opponent_id: String):
 	if opponent_id in reason_for_defeat.keys():
@@ -81,12 +138,18 @@ func record_event_card_played(event_card_def: EventCardDefinition,game_state: Ga
 	else:
 		event_cards_played_per_turn[game_state.current_round][event_card_id] += 1
 
+### action_usage only has the actions the player is using (see _setup_action_usage). An action the player isn't
+### using can still resolve, e.g. an ally's Fluff move triggers Handjob - that is not the player using it, so it
+### is left out of the report (it must not count against "only use X" conditions or add to the action's stats).
 func record_damage_to_opponent(action_id: String,opponent_type_id: String, damage: int) -> void:
+	if action_id not in action_usage.keys():
+		return
 	action_usage[action_id].record_damage_to_opponent(opponent_type_id,damage)
 func record_opponent_type_defeated_with_action(action_id: String,opponent_type_id: String) -> void:
 	if opponent_type_id == "":
 		return
-	
+	if action_id not in action_usage.keys():
+		return
 	action_usage[action_id].record_opponent_type_defeated(opponent_type_id)
 
 func record_new_orgasms(new_orgasm_increase: int) -> void:
@@ -112,6 +175,13 @@ func record_active_opponents(game_state: GameState) -> void:
 func record_active_player_passives_at_end_of_game(game_state: GameState) -> void:
 	active_player_passives_at_end_of_game = game_state.get_active_player_passives()
 
+### A snapshot of the player's statuses as the encounter ends, with how many stacks of each (the same moment as the passives above).
+func record_active_player_statuses_at_end_of_game(game_state: GameState) -> void:
+	active_player_statuses_at_end_of_game = {}
+	var player_statuses: Dictionary = game_state.get_player_statuses()
+	for status_id in player_statuses.keys():
+		active_player_statuses_at_end_of_game[status_id] = maxi(int(player_statuses[status_id].get("stacks",1)),1)
+
 #endregion
 #region Query methods
 func get_defeated_opponents() -> Dictionary:
@@ -135,6 +205,10 @@ func get_times_cards_have_been_played(card_ids: Array[String]) -> int:
 		total += get_times_card_has_been_played(card_id)
 	return total
 
+### How many stacks of the status the player had when the encounter ended, 0 if they did not have it.
+func get_status_stacks_at_end_of_game(status_id: String) -> int:
+	return int(active_player_statuses_at_end_of_game.get(status_id,0))
+
 func get_times_card_has_been_played_in_round(round_nr: int, card_id: String) -> int:
 	if round_nr not in event_cards_played_per_turn.keys():
 		return 0
@@ -142,6 +216,34 @@ func get_times_card_has_been_played_in_round(round_nr: int, card_id: String) -> 
 		return 0
 	return event_cards_played_per_turn[round_nr][card_id]
 	
+### The most Event Cards played in any single turn.
+func get_most_cards_played_in_one_turn() -> int:
+	var most_cards: int = 0
+	for turn in event_cards_played_per_turn.keys():
+		var cards_this_turn: int = 0
+		for card_id in event_cards_played_per_turn[turn].keys():
+			cards_this_turn += event_cards_played_per_turn[turn][card_id]
+		most_cards = maxi(most_cards, cards_this_turn)
+	return most_cards
+
+### True if some turn had at least min_cards Event Cards played in it, including every card in required_card_ids.
+func has_turn_with_cards(min_cards: int, required_card_ids: Array[String] = []) -> bool:
+	for turn in event_cards_played_per_turn.keys():
+		var cards_this_turn: Dictionary = event_cards_played_per_turn[turn]
+		var total: int = 0
+		for card_id in cards_this_turn.keys():
+			total += cards_this_turn[card_id]
+		if total < min_cards:
+			continue
+		var has_all_required: bool = true
+		for required_card_id in required_card_ids:
+			if required_card_id not in cards_this_turn.keys():
+				has_all_required = false
+				break
+		if has_all_required:
+			return true
+	return false
+
 func get_nr_of_opponents_defeated_on_turn(turn: int) -> int:
 	if opponents_defeated_each_turn.is_empty():
 		return 0

@@ -1,0 +1,18 @@
+{
+	"author": "ModAuhorName",
+	"content": {
+		"CharacterDefinition": 1,
+		"EncounterDefinition": 2,
+		"EncounterMap": 1,
+		"EventCardDefinition": 2,
+		"ImageReplacementSet": 1,
+		"MapRegionDefinition": 1,
+		"PassiveEffectDefinition": 1,
+		"RewardDefinition": 1,
+		"StatusEffectDefinition": 0,
+		"VideoClip": 9
+	},
+	"mod_name": "YourModNameHere",
+	"mod_version": "1.0.0",
+	"schema_version": 1
+}

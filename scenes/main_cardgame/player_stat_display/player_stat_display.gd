@@ -68,20 +68,32 @@ func _update_energy_delta_label() -> void:
 
 func _ready() -> void:
 	super._ready()
+	main_game.meta_game.connect("save_game_state_changed",Callable(self,"update_when_save_game_changes"))
+	energy_delta_label.hide()
+	reset_orgasm_counter()
+	_set_cum_shader()
+
+func _set_cum_shader() -> void:
+	if not is_instance_valid(cum_overlay):
+		return
+	if not is_instance_valid(cum_texture):
+		return
+	if not is_instance_valid(shader_material):
+		return
 	shader_material.set_shader_parameter("cum_texture",cum_texture)
 	shader_material.set_shader_parameter("damage_intensity",0.0)
 	shader_material.set_shader_parameter("layer_overlap", layer_overlap)
 	shader_material.set_shader_parameter("contrast", contrast)
 	cum_overlay.material = shader_material
-	energy_delta_label.hide()
-	main_game.meta_game.connect("save_game_state_changed",Callable(self,"update_when_save_game_changes"))
-	#orgasms_so_far_label.text = "0"+orgasm_counter_text
-	reset_orgasm_counter()
+
+	
 
 func update_when_save_game_changes(save_game_state: SaveGameState) -> void:
 	_load_profile_picture_from_save_game(save_game_state)
 
 func _load_profile_picture_from_save_game(save_game_state: SaveGameState) -> void:
+	if not is_instance_valid(profile_pic):
+		return
 	profile_pic.texture = save_game_state.get_character_portrait()
 
 func update_class_specific_displays(game_state: GameState) -> void:
@@ -94,10 +106,16 @@ func update_class_specific_displays(game_state: GameState) -> void:
 
 func set_starting_values(game_state: GameState) -> void:
 	pleasure_bar.initialize_values(game_state.player.get("damage_threshold"))
+	set_edging_threshold_pleasure(game_state.get_edging_threshold_pleasure())
 	HPvalue.text = str(int(game_state.player.get("hp")))
 	nr_of_cumshots_received = 0
 	_update_cum_intensity(0)
 	reset_orgasm_counter() 
+
+### Where Edging starts on the pleasure bar, in whole Pleasure (GameState.get_edging_threshold_pleasure()). Set when the
+### encounter starts; while it runs the Animation_EdgingThresholdChanged handler calls it (animated) when the threshold changes.
+func set_edging_threshold_pleasure(threshold_pleasure: int, animated: bool = false) -> void:
+	pleasure_bar.set_edging_threshold_pleasure(threshold_pleasure,animated)
 
 func reset_orgasm_counter() -> void:
 	orgasm_counter = 0
@@ -108,7 +126,6 @@ func get_displayed_player_damage() -> int:
 
 func update_displayed_values_when_taking_damage(health_after_damage: int,_orgasms_after_damage: int) -> void:
 	pleasure_bar.set_current_pleasure(health_after_damage)
-	#HPvalue.text = str(orgasms_after_damage)
 
 func update_displayed_values_when_healing(health_after_healing: int) -> void:
 	pleasure_bar.set_current_pleasure(health_after_healing)
@@ -131,6 +148,8 @@ func increment_number_of_times_cummed_on() -> void: ### Called by defeated oppon
 	_update_cum_intensity(nr_of_cumshots_received)
 
 func _update_cum_intensity(cum_number: int) -> void:
+	if not is_instance_valid(shader_material):
+		return
 	#print("Running _update_cum_intensity")
 	var intensity: float = float(cum_number) / float(max_cumshot_number)
 	#print("Intensity: %s"%intensity)
@@ -144,13 +163,16 @@ func _update_cum_intensity(cum_number: int) -> void:
 func get_orgasm_counter() -> Control:
 	return orgasm_icon
 
-func decrement_hp_value() -> void:
+### Takes away the orgasms the player just had from the "orgasms left" counter: one per orgasm, so several at once (a total of 350
+### Pleasure of 100 is 3) take away several.
+func decrement_hp_value(nr_of_orgasms: int = 1) -> void:
 	var current_value: int = int(HPvalue.text)
-	var new_value: int = current_value - 1
+	var new_value: int = current_value - nr_of_orgasms
 	HPvalue.text = str(new_value)
 
-func increment_orgasm_counter() -> void:
-	orgasm_counter += 1
+### Adds the orgasms the player just had to the "orgasms so far" counter: one per orgasm, so several at once count several.
+func increment_orgasm_counter(nr_of_orgasms: int = 1) -> void:
+	orgasm_counter += nr_of_orgasms
 	orgasms_so_far_label.text = tr(ORGASMS_SO_FAR_KEY) % orgasm_counter
 	AnimationHelper_NodeFlasher._flash_nodes_green(
 		[orgasms_so_far_label],1,1,0.2)

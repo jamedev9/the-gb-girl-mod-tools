@@ -62,8 +62,8 @@ func _add_card_instances_to_opening_hand_(game_state: GameState) -> void:
 			var new_card_instance: EventCardInstance = _create_new_event_card_instance(
 				game_state,	event_card_id,permanence)
 			new_card_instance.card_state = EventCardInstance.CardState.IN_HAND
-			_add_single_card_to_hand_(game_state,new_card_instance)
-				
+			_add_single_card_to_hand_(game_state,new_card_instance,true)
+
 			var fragment: LogFragment = LogFragment.make_new_log_fragment(
 			"player_drew_an_event_card_from_deck",
 			{"event_card_instance":new_card_instance,"card_type_id":new_card_instance.card_id},
@@ -179,22 +179,28 @@ func _add_cards_to_hand_(game_state: GameState, cards: Array[EventCardInstance])
 	for card_instance in cards:
 		_add_single_card_to_hand_(game_state,card_instance)
 
-func _add_single_card_to_hand_(game_state: GameState, event_card_instance: EventCardInstance) -> void:
+### reported_separately: the caller also logs this card with a fragment of its own (opening hand: "drew",
+### combo/reward/orgasm cards: their own keys), so the rework log skips this generic "added to hand" fragment
+### instead of mentioning the same card twice. The prototype log ignores the flag and shows both, as before.
+func _add_single_card_to_hand_(
+	game_state: GameState, event_card_instance: EventCardInstance, reported_separately: bool = false) -> void:
 	game_state.event_cards_hand.append(event_card_instance)
 	event_card_instance.card_state = EventCardInstance.CardState.IN_HAND
 	main_game.request_drawing_event_card(event_card_instance)
 	#main_game.floating_player_event_cards.draw_card(event_card_instance)
 	var fragment: LogFragment = LogFragment.make_new_log_fragment(
 		"event_card_added_to_players_hand",
-		{"event_card_instance":event_card_instance,"card_type_id":event_card_instance.card_id},
+		{"event_card_instance":event_card_instance,"card_type_id":event_card_instance.card_id,
+		"reported_separately":reported_separately},
 		[LogFragment.LogTags.EVENT_CARD_ADDED_TO_HAND],
 		null,true)
 	main_game.request_adding_fragment_to_log(fragment)
 	#await main_game._step_delay(game_state)
 
-func _add_multiple_cards_to_deck_(game_state: GameState, cards: Array[EventCardInstance]) -> void:
+### are_new_cards: see _add_card_to_deck_().
+func _add_multiple_cards_to_deck_(game_state: GameState, cards: Array[EventCardInstance], are_new_cards: bool = false) -> void:
 	for card_instance in cards:
-		_add_card_to_deck_(game_state,card_instance)
+		_add_card_to_deck_(game_state,card_instance,are_new_cards)
 
 func _should_return_card_to_deck(game_state: GameState, card_instance: EventCardInstance) -> bool:
 	if card_instance.permanence == CardInstance.CardPermanence.PERMANENT:
@@ -205,8 +211,11 @@ func _should_return_card_to_deck(game_state: GameState, card_instance: EventCard
 		return card_instance.card_id not in game_state.encounter_report.get_played_event_cards().keys()
 	return false
 
-func _add_card_to_deck_(game_state: GameState, card_instance: EventCardInstance) -> void:
-	if not _should_return_card_to_deck(game_state, card_instance):
+### is_new_card: the card was just created by an effect (MainCardgame._add_cards_from_effect_to_deck()), whose
+### author chose its permanence - so it goes in whatever that is, not only the permanences that normally return to
+### the deck (_should_return_card_to_deck()). A non-permanent card is a one-shot: deleted when it leaves the hand.
+func _add_card_to_deck_(game_state: GameState, card_instance: EventCardInstance, is_new_card: bool = false) -> void:
+	if not is_new_card and not _should_return_card_to_deck(game_state, card_instance):
 		return
 	game_state.event_cards_deck.append(card_instance)
 	card_instance.card_state = EventCardInstance.CardState.IN_DRAW_PILE
@@ -379,8 +388,8 @@ func _add_combo_cards_to_hand_(game_state: GameState,valid_combos_without_overla
 		var new_card_instance: EventCardInstance = _create_new_event_card_instance(
 			game_state,combo_card_id,CardInstance.CardPermanence.TEMPORARY,0
 		)
-		_add_single_card_to_hand_(game_state,new_card_instance)
-		
+		_add_single_card_to_hand_(game_state,new_card_instance,true)
+
 		var log_fragment: LogFragment = LogFragment.make_new_log_fragment(
 		"combo_card_added_to_hand",
 		{"event_card_instance":new_card_instance,"card_type_id":new_card_instance.card_id},
@@ -398,7 +407,7 @@ func _add_reward_cards_for_defeat_with_player_action(game_state:GameState,action
 	var reward_card_id: String = game_state.reward_cards_from_actions[action.action_id]
 	var reward_card_instance: EventCardInstance = _create_new_event_card_instance(
 		game_state,reward_card_id,CardInstance.CardPermanence.REWARD,0)
-	_add_single_card_to_hand_(game_state,reward_card_instance)
+	_add_single_card_to_hand_(game_state,reward_card_instance,true)
 	_log_adding_reward_card_to_hand(reward_card_id,reward_card_instance,opponent_id,action.action_id)
 
 func _log_adding_reward_card_to_hand(reward_card_id: String,reward_card_instance: EventCardInstance,
@@ -419,7 +428,7 @@ func _add_reward_cards_for_defeat_with_event_card(game_state: GameState,opponent
 	for reward_card_id in event_card_def.reward_cards_from_defeat:
 		var reward_card_instance: EventCardInstance = _create_new_event_card_instance(
 			game_state,reward_card_id,CardInstance.CardPermanence.REWARD,0)
-		_add_single_card_to_hand_(game_state,reward_card_instance)
+		_add_single_card_to_hand_(game_state,reward_card_instance,true)
 		_log_adding_reward_card_to_hand(reward_card_id,reward_card_instance,opponent_id,"",event_card_id)
 
 func _add_temporary_cards_to_encounter_report(game_state: GameState) -> void:
@@ -431,14 +440,16 @@ func _add_temporary_cards_to_encounter_report(game_state: GameState) -> void:
 
 #endregion
 #region Orgasm cards:
-func _handle_player_HP_reduction_(game_state: GameState) -> void:
-	_add_orgasm_reward_card_to_players_hand(game_state)
+### One orgasm reward card per orgasm: several orgasms at once (a Pleasure total of 350 of 100 is 3 orgasms) give several cards.
+func _handle_player_HP_reduction_(game_state: GameState, nr_of_orgasms: int = 1) -> void:
+	for orgasm_index in range(nr_of_orgasms):
+		_add_orgasm_reward_card_to_players_hand(game_state)
 
 func _add_orgasm_reward_card_to_players_hand(game_state: GameState) -> void:
 	var reward_card_id: String = _get_orgasm_reward_card_id()
 	var reward_card_instance: EventCardInstance = _create_new_event_card_instance(
 		game_state,reward_card_id,CardInstance.CardPermanence.TEMPORARY,0)
-	_add_single_card_to_hand_(game_state,reward_card_instance)
+	_add_single_card_to_hand_(game_state,reward_card_instance,true)
 	_log_adding_reward_card_from_orgasm(game_state,reward_card_instance)
 
 func _get_orgasm_reward_card_id() -> String:

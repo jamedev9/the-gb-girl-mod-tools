@@ -10,6 +10,10 @@ func get_status_effects() -> Dictionary:
 	return {}
 func get_passive_effects() -> Array:
 	return []
+### How many stacks of the status this entity has right now (0 if it doesn't have the status).
+func get_status_stacks(status_id: String) -> int:
+	var status_instance: Dictionary = get_status_effects().get(status_id, {})
+	return status_instance.get("stacks", 0)
 func get_tracker_key() -> String:
 	return "player"
 

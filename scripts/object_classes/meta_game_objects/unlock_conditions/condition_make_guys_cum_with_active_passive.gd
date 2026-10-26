@@ -1,3 +1,4 @@
+@tool
 extends UnlockCondition
 class_name Condition_MakeGuysCumWIthActivePassive_Resetable
 
@@ -30,3 +31,11 @@ func is_condition_met(save_game_state: SaveGameState,encounter_report: Encounter
 
 func is_condition_hidden_from_player(save_game_state: SaveGameState) -> bool:
 	return not save_game_state.player_owns_passive(passive_id)
+
+func _build_description_segments(save_game_state: SaveGameState) -> Array[DescriptionSegment]:
+	var current_count: int = 0
+	if save_game_state and unlock_condition_id in save_game_state.condition_tracking.keys():
+		current_count = save_game_state.condition_tracking[unlock_condition_id]
+	return _template("UI_UNLOCK_CONDITION_CUM_WITH_PASSIVE", {
+		"count": _number(count), "passive": _term_link("PASSIVE", passive_id),
+		"progress": _progress_text(current_count, count)}, count)

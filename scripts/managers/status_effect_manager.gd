@@ -5,12 +5,34 @@ class_name StatusEffectManager
 signal status_effect_sends_effect_and_target_intent(base_context: EffectContext, effect_and_target_intent)
 signal passive_effect_sends_effect_and_target_intent(base_context: EffectContext, effect_and_target_intent)
 
+### A status applied with duration 0 (ApplyStatusEffect.status_duration) is persistent: it ticks every turn but
+### never counts down, so it only goes away when something clears it (e.g. a ClearStatusesfromTargets in
+### its own triggered components). A timed status is erased the moment it reaches 0, so 0 is never a leftover.
+static func is_duration_persistent(duration: int) -> bool:
+	return duration <= 0
+
+### The duration a status ends up with when the same status is applied to a holder that already has it.
+### Persistent beats any timed duration (either one being persistent makes the result persistent, 0).
+### add_durations = true is the non-stackable rule (the two are added), false the stackable rule (the longer one).
+static func get_duration_after_reapplying(existing_duration: int, applied_duration: int, add_durations: bool) -> int:
+	if is_duration_persistent(existing_duration) or is_duration_persistent(applied_duration):
+		return 0
+	if add_durations:
+		return existing_duration + applied_duration
+	return maxi(existing_duration, applied_duration)
+
 func _progress_status_effects_on_target_entity_(game_state: GameState,target_entity:TargetEntity) -> void:
 	var status_effects_on_target = target_entity.get_status_effects()
 	var status_effect_ids: Array = status_effects_on_target.keys()
 	for effect_id in status_effect_ids:
+		if not status_effects_on_target.has(effect_id):
+			continue ### An earlier status's tick already cleared this one.
 		var status_instance: Dictionary = status_effects_on_target[effect_id]
 		_send_requests_for_ticking_status_effects(game_state,target_entity,effect_id,status_instance)
+		if not status_effects_on_target.has(effect_id):
+			continue ### Cleared by its own tick.
+		if is_duration_persistent(status_instance["duration"]):
+			continue
 		_tick_down_duration_of_status(status_instance)
 		_remove_instance_if_duration_is_zero(target_entity,effect_id)
 
@@ -22,6 +44,7 @@ func _send_requests_for_ticking_status_effects(game_state: GameState, target_ent
 			var base_context: EffectContext = EffectContext.new()
 			base_context.source = target_entity
 			base_context.status_placed_by = _get_still_valid_placer(status_instance)
+			base_context.source_effect_stacks = maxi(status_instance.get("stacks", 1), 1)
 			base_context.id_of_effect_origin = status_def.status_id
 			base_context.effect_origin = status_def
 			base_context.game_state = game_state
@@ -43,7 +66,9 @@ func _get_still_valid_placer(status_instance: Dictionary) -> TargetEntity:
 	return null
 
 func _send_requests_for_ticking_passive_effects(game_state: GameState, target_entity: TargetEntity, effect_id: String) -> void:
-	var passive_def: PassiveEffectDefinition = AutoloadDatabase.passive_effect_definitions[effect_id]
+	var passive_def: PassiveEffectDefinition = AutoloadDatabase.get_passive_effect_def(effect_id)
+	if passive_def == null: ### Not in the game (e.g. a disabled mod's passive).
+		return
 	for component in passive_def.ticking_effect_components:
 		for effect_and_target_intent in component.effect_intents:
 			var base_context: EffectContext = EffectContext.new()

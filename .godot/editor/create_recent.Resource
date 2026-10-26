@@ -1,5 +1,10 @@
+Reward_GivePlayerEventCards
+EventCardDefinition
+MapRegionDefinition
+EncounterMap
+EncounterDefinition
+VideoClip
 PassiveEffectDefinition
 ComboEventCardDefinition
 ImageReplacementSet
 CharacterDefinition
-VideoClip

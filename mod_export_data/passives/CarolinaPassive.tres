@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="PassiveEffectDefinition" load_steps=17 format=3 uid="uid://dfkj8d343rohu"]
+[gd_resource type="Resource" script_class="PassiveEffectDefinition" format=3 uid="uid://dfkj8d343rohu"]
 
 [ext_resource type="Script" uid="uid://ddf1my534lql5" path="res://scripts/object_classes/status_effects/status_modifier_components/status_modifier_components.gd" id="1_0ue0c"]
 [ext_resource type="Texture2D" uid="uid://31f6kmmfhnmm" path="res://mod_export_data/images/actor-carolina-sweets-540785_large-489440100.jpg" id="2_7x5tl"]

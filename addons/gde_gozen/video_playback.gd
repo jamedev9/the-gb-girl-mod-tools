@@ -107,6 +107,7 @@ func _enter_tree() -> void:
 	AudioServer.add_bus()
 	audio_player.bus = AudioServer.get_bus_name(AudioServer.bus_count - 1)
 	AudioServer.add_bus_effect(AudioServer.bus_count - 1, _audio_pitch_effect)
+	AudioServer.set_bus_mute(AudioServer.bus_count - 1, !enable_audio)
 
 	if debug and OS.get_name().to_lower() != "web":
 		_print_system_debug()
