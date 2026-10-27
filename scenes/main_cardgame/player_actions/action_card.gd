@@ -46,6 +46,16 @@ signal drag_started(action_card: ActionCard)
 signal animation_state_changed(action_card: ActionCard)
 signal returned_to_hand
 
+## The Action card under the mouse (walks up from the hovered control, like OpponentCard.find_hovered_opponent_card()), null when
+## there is none.
+static func find_hovered_action_card(viewport: Viewport) -> ActionCard:
+	var node: Node = viewport.gui_get_hovered_control()
+	while is_instance_valid(node):
+		if node is ActionCard:
+			return node as ActionCard
+		node = node.get_parent()
+	return null
+
 #PLAYERACTION_ANAL_ACTION_NAME,
 func _refresh_text() -> void:
 	if not represented_action:
@@ -56,6 +66,7 @@ func _refresh_text() -> void:
 func _process(delta: float) -> void:
 	show_if_disabled_by_status(main_game.game_state)
 	_update_move_energy_display()
+	_update_move_damage_display()
 
 ### Polled every frame rather than event-driven - the number of live action cards is
 ### small, and the cost depends on ambient state (player statuses/passives, and while
@@ -77,6 +88,36 @@ func _update_move_energy_display() -> void:
 		move_energy.modulate = SettingsManager.active_positive_color()
 	elif current_cost > base_cost:
 		move_energy.modulate = SettingsManager.active_negative_color()
+
+### Live like the energy cost: the Pleasure the Action gives with every status and passive that changes it (PleasurePreview),
+### colored when they change it. Outside an encounter: the plain number. Works from represented_action_id only: the drag preview
+### is a duplicate(), which doesn't copy represented_action.
+func _update_move_damage_display() -> void:
+	if represented_action_id == "":
+		return
+	var preview: PleasurePreview = PleasurePreview.for_main_game(main_game)
+	if not preview.can_preview():
+		var action: PlayerAction = get_effective_player_action(represented_action_id)
+		if action:
+			_show_move_damage(action.get_displayed_damage(), Color.WHITE)
+		return
+	var hits: Array[PleasurePreviewHit] = PleasurePreview.get_displayed_hits(
+		preview.preview_player_action(represented_action_id, get_opponent_for_live_pleasure(), false), false)
+	_show_move_damage(PleasurePreview.sum_amounts(hits), PleasurePreview.get_live_number_color(hits))
+
+### Whose incoming modifiers the live Pleasure includes: the Partner under the drag preview, or (not dragged) the Partner the
+### Action is on. "" = none, only the player's own.
+func get_opponent_for_live_pleasure() -> String:
+	if _is_drag_preview_clone:
+		var hovered_opponent: OpponentCard = OpponentCard.find_hovered_opponent_card(get_viewport())
+		if hovered_opponent:
+			return hovered_opponent.get_opponent_id()
+		return ""
+	return main_game.game_state.get_opponent_with_action(represented_action_id)
+
+func _show_move_damage(damage: int, color: Color) -> void:
+	move_damage.text = str(damage)
+	move_damage.modulate = color
 
 func update_class_specific_displays(game_state: GameState) -> void:
 	_make_unavailable_during_opponents_turn(game_state)

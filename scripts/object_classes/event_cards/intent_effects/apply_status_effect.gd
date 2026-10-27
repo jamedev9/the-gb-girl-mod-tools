@@ -64,3 +64,6 @@ func get_trailing_description_segments() -> Array[DescriptionSegment]:
 		"EFFECTINTENT_APPLYSTATUSEFFECT_DURATION_TEMPLATE_SINGULAR",
 		"EFFECTINTENT_APPLYSTATUSEFFECT_DURATION_TEMPLATE",
 		{"duration": str(status_duration)})
+
+func get_referenced_content_ids() -> Dictionary:
+	return {"statuses": [status_id]}

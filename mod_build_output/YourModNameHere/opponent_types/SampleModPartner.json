@@ -1,0 +1,30 @@
+{
+	"_class": "OpponentType",
+	"action_strategy": {
+		"_class": "Strategy_SequentialActionProgression"
+	},
+	"available_action_ids": [
+		"sample_mod_move",
+		"laser_beam",
+		"move_from_a_removed_mod"
+	],
+	"card_color": "8a2be3ff",
+	"max_damage": 40,
+	"name_list_ids": [
+		"sample_mod_names",
+		"white_male_names",
+		"name_list_from_a_removed_mod"
+	],
+	"names": [
+		"Own-List Oscar"
+	],
+	"opponent_type_id": "sample_mod_partner",
+	"opponent_type_name": "Sample Mod Partner",
+	"orgasms_before_defeat": 1,
+	"passive_effects": [],
+	"picture": "sample_partner.jpg",
+	"summonable_ally": false,
+	"video_participant_tags": [
+		"WHITE_MAN"
+	]
+}

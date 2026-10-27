@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="OpponentType" format=3 uid="uid://mjmn7lw4kktp"]
+
+[ext_resource type="Script" uid="uid://ccdnl8y0gihr6" path="res://scripts/object_classes/opponent_types/opponent_type.gd" id="1_type"]
+[ext_resource type="Script" uid="uid://bch5b8ykyp5nk" path="res://scripts/object_classes/opponent_visuals/opponent_appearance.gd" id="2_mo2ij"]
+[ext_resource type="Script" uid="uid://cw3aiiann54rg" path="res://resources/opponents/names/name_list.gd" id="2_names"]
+[ext_resource type="Script" uid="uid://djoeye2onljyo" path="res://scripts/object_classes/opponent_action_strategy/stategy_sequential_action_progression.gd" id="3_strategy"]
+[ext_resource type="Texture2D" uid="uid://crhwnqcsavwlt" path="res://mod_export_data/images/sample_partner.jpg" id="4_picture"]
+
+[sub_resource type="Resource" id="Resource_strategy"]
+script = ExtResource("3_strategy")
+
+[sub_resource type="Resource" id="Resource_names"]
+script = ExtResource("2_names")
+names = Array[String](["Own-List Oscar"])
+
+[resource]
+script = ExtResource("1_type")
+opponent_type_id = "sample_mod_partner"
+opponent_type_name = "Sample Mod Partner"
+picture = ExtResource("4_picture")
+video_particpant_tags = Array[int]([8])
+name_lists = Array[ExtResource("2_names")]([SubResource("Resource_names")])
+name_list_ids = Array[String](["sample_mod_names", "white_male_names", "name_list_from_a_removed_mod"])
+card_color = Color(0.54, 0.17, 0.89, 1)
+max_damage = 40
+available_action_ids = Array[String](["sample_mod_move", "laser_beam", "move_from_a_removed_mod"])
+action_strategy = SubResource("Resource_strategy")

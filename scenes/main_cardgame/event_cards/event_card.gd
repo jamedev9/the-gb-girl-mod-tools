@@ -2,17 +2,19 @@ extends Cardgame_UI_Element
 class_name EventCard
 
 @export var event_card_type: Label
-@export var event_card_name: Label
+@export var event_card_name: ShrinkToFitLabel
 @export var event_card_picture: TextureRect
 @export var event_card_energy_cost: Label
-@export var event_card_description: Label
+### The card's text (EventCardDefinition.get_card_description_segments()); its {VALUE:...} Pleasure numbers are live while
+### use_live_energy_cost is on (see _update_live_pleasure_values()).
+@export var event_card_description: DescriptionLabel
 @export var full_container: PanelContainer
 @export var action_disabled_overlay: PanelContainer
 @export var shader_overlay: TextureRect
 @export var duration_control: Control
 @export var card_duration_value: Label
 ### On: the cost label follows the current encounter's cost-changing statuses and passives (cards in
-### the hand, tooltips). Off: always the card's base cost. Cards shown outside an encounter (the deck
+### the hand, tooltips), and so do the Pleasure numbers in the text. Off: always the card's base cost and numbers. Cards shown outside an encounter (the deck
 ### builder, the orgasm card pickers) must be off - every EventCard listens to the main game's
 ### game_state_changed, so they would otherwise pick up the running encounter's reductions and keep
 ### them after it ends.
@@ -60,6 +62,19 @@ func _ready() -> void:
 	super._ready()
 	main_game.connect("event_card_durations_updated",Callable(self,"_update_duration_display"))
 
+## The card in the hand under the mouse (walks up from the hovered control, like OpponentCard.find_hovered_opponent_card()),
+## null when there is none. Cards shown elsewhere (tooltips, card links) are EventCards too, but their instance is never IN_HAND.
+static func find_hovered_hand_card(viewport: Viewport) -> EventCard:
+	var node: Node = viewport.gui_get_hovered_control()
+	while is_instance_valid(node):
+		if node is EventCard:
+			var card: EventCard = node as EventCard
+			if card.event_card_instance and card.event_card_instance.card_state == EventCardInstance.CardState.IN_HAND:
+				return card
+			return null
+		node = node.get_parent()
+	return null
+
 func update_class_specific_displays(game_state: GameState) -> void:
 	show_if_disabled_by_status(game_state)
 	_make_unavailable_during_opponents_turn(game_state)
@@ -93,8 +108,8 @@ func _refresh_text() -> void:
 	if not event_card_instance:
 		return
 	var event_card_def: EventCardDefinition = AutoloadDatabase.event_cards_by_id[event_card_instance.card_id]
-	event_card_name.text = event_card_def.get_card_name()
-	event_card_description.text = event_card_def.get_card_description()
+	event_card_name.set_fitted_text(event_card_def.get_card_name())
+	_show_description(event_card_def)
 
 #func get_event_card_definition() -> EventCardDefinition
 
@@ -132,7 +147,7 @@ func display_event_card(given_card_instance: EventCardInstance) -> void:
 	self.event_card_id =  given_card_instance.card_id
 	if not card_id_already_shown:
 		var card_name_text: String = event_card_def.get_card_name()
-		event_card_name.text = card_name_text
+		event_card_name.set_fitted_text(card_name_text)
 	var picture: Texture2D
 	picture = ImageOverrideManager.get_override_texture(ImageOverrideManager.ReplacementType.EVENT_CARD_IMAGE,given_card_instance.card_id,get_selected_character_id())
 	if not picture:
@@ -141,8 +156,7 @@ func display_event_card(given_card_instance: EventCardInstance) -> void:
 	set_energy_cost_value(event_card_def.energy_cost)
 
 	if not card_id_already_shown:
-		var card_description_text: String = event_card_def.get_card_description()
-		event_card_description.text = card_description_text
+		_show_description(event_card_def)
 
 	match given_card_instance.permanence:
 		CardInstance.CardPermanence.TEMPORARY:
@@ -184,9 +198,61 @@ func set_energy_cost_value(cost: int) -> void:
 	if cost < baseline_cost:
 		event_card_energy_cost.modulate = SettingsManager.active_positive_color()
 
+#region Description with live Pleasure numbers
+### The card text's segments, built once per card (and language) and refilled with live Pleasure numbers every frame.
+var _description_segments: Array[DescriptionSegment] = []
+var _description_has_live_values: bool = false
+### What the live numbers showed when the text was last rendered (LivePleasureValues.get_live_signature()).
+var _shown_live_signature: String = ""
+
+func _show_description(event_card_def: EventCardDefinition) -> void:
+	_description_segments = event_card_def.get_card_description_segments()
+	_description_has_live_values = LivePleasureValues.has_live_segments(_description_segments)
+	_fill_live_pleasure_values()
+	_shown_live_signature = LivePleasureValues.get_live_signature(_description_segments)
+	event_card_description.show_segments(_description_segments)
+
+func _process(_delta: float) -> void:
+	_update_live_pleasure_values()
+
+### Polled every frame like the energy cost and the Action cards' numbers; the label is only re-rendered when a number or its color
+### changed.
+func _update_live_pleasure_values() -> void:
+	if not _description_has_live_values or not is_visible_in_tree():
+		return
+	_fill_live_pleasure_values()
+	var signature: String = LivePleasureValues.get_live_signature(_description_segments)
+	if signature == _shown_live_signature:
+		return
+	_shown_live_signature = signature
+	event_card_description.show_segments(_description_segments)
+
+### Live only for a card in an encounter (use_live_energy_cost): empty (plain numbers) everywhere else. Always what this one card
+### does, also while copies are lifted with it (Ctrl): playing several never changes what each of them does (only the pleasure
+### bars and the Energy preview show the total, FloatingPlayerHand.get_play_count()).
+func _fill_live_pleasure_values() -> void:
+	var live_values: LivePleasureValues = LivePleasureValues.new()
+	if use_live_energy_cost and event_card_instance and is_instance_valid(main_game):
+		live_values = LivePleasureValues.for_event_card(
+			PleasurePreview.for_main_game(main_game), event_card_instance, _get_opponent_for_live_pleasure())
+	live_values.apply_to(_description_segments)
+
+### The Partner under the cursor while this card is being dragged (the card itself during an arrow drag, or its drag preview copy),
+### "" otherwise: its numbers then include that Partner's modifiers, as if dropped there.
+func _get_opponent_for_live_pleasure() -> String:
+	var viewport: Viewport = get_viewport()
+	if not viewport or not viewport.gui_is_dragging():
+		return ""
+	var drag_data: Variant = viewport.gui_get_drag_data()
+	if drag_data is not EventCard or drag_data.event_card_instance != event_card_instance:
+		return ""
+	var hovered_opponent: OpponentCard = OpponentCard.find_hovered_opponent_card(viewport)
+	return hovered_opponent.get_opponent_id() if hovered_opponent else ""
+#endregion
+
 func update_alignment_of_textbox() -> void:
 	#print(event_card_description.get_minimum_size().x)
-	if event_card_description.text.length() < CENTER_ALIGNMENT_THRESHOLD:
+	if event_card_description.get_parsed_text().length() < CENTER_ALIGNMENT_THRESHOLD:
 		event_card_description.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	else:
 		event_card_description.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT

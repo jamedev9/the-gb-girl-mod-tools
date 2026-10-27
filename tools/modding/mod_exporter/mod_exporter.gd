@@ -24,6 +24,9 @@ var export_configs: Array[ExportConfig] = [
 	ExportConfig.new("res://mod_export_data/status_effects/", StatusEffectDefinition),
 	ExportConfig.new("res://mod_export_data/map_regions/", MapRegionDefinition),
 	ExportConfig.new("res://mod_export_data/rewards/", RewardDefinition),
+	ExportConfig.new("res://mod_export_data/name_lists/", NameList),
+	ExportConfig.new("res://mod_export_data/opponent_actions/", OpponentActionDefinition),
+	ExportConfig.new("res://mod_export_data/opponent_types/", OpponentType),
 	ExportConfig.new("res://mod_export_data/encounters/", EncounterDefinition),
 	ExportConfig.new("res://mod_export_data/maps/", EncounterMap),
 ]

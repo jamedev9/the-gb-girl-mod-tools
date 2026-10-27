@@ -20,17 +20,29 @@ func create_intent_context(_game_state:GameState,_intent_context: EffectContext)
 
 	return pleasure_context
 
+func create_pleasure_preview_context(game_state: GameState, intent_context: EffectContext) -> EffectContext:
+	return create_intent_context(game_state, intent_context)
+
+func get_pleasure_kind() -> PleasureKind:
+	return PleasureKind.GIVES
+
+func get_described_pleasure_amount() -> int:
+	return pleasure_per_play
+
+func is_pleasure_counted() -> bool:
+	return true
+
 func get_description_segments() -> Array[DescriptionSegment]:
-	return DescriptionBuilder.parse_template(
+	return DescriptionBuilder.followed_by_live_pleasure_total(self, DescriptionBuilder.parse_template(
 		tr("EFFECTINTENT_PLEASUREBASEDONTIMESCARDSAREPLAYED_TEMPLATE"),
-		{"pleasure_per_play": str(pleasure_per_play), "card_names": _card_names()})
+		{"pleasure_per_play": str(pleasure_per_play), "card_names": _card_names()}))
 
 ### Explicit "Player" since targeting_intent=PLAYER always means the player, regardless of which
 ### side owns the surrounding status/passive - see DealDamageEffect's own self-targeted override.
 func get_self_targeted_description_segments() -> Array[DescriptionSegment]:
-	return DescriptionBuilder.parse_template(
+	return DescriptionBuilder.followed_by_live_pleasure_total(self, DescriptionBuilder.parse_template(
 		tr("EFFECTINTENT_PLEASUREBASEDONTIMESCARDSAREPLAYED_SELF_TEMPLATE"),
-		{"pleasure_per_play": str(pleasure_per_play), "card_names": _card_names()})
+		{"pleasure_per_play": str(pleasure_per_play), "card_names": _card_names()}))
 
 func _card_names() -> String:
 	var names: Array[String] = []

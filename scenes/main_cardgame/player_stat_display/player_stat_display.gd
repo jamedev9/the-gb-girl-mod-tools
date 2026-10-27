@@ -36,35 +36,57 @@ signal event_card_dropped(event_card: EventCard, empty_string: String)
 func _process(_delta: float) -> void:
 	_update_displayed_energy_next_round()
 	_update_energy_delta_label()
+	_update_pleasure_preview()
 
-### Shows the energy cost of whatever's currently being dragged - an Action Card
-### (cost depends on whichever opponent is under the cursor) or an Event Card
-### (cost is player-only, so it shows for the whole drag). Hidden whenever nothing
-### is being dragged. Polled every frame to match the live cost preview on the
-### dragged card itself (see ActionCard/EventCard).
+### "+X" / "-X" and a shaded region on the player's bar while a card or a Partner's Move under the mouse would change their Pleasure
+### (PleasureBarPreviews).
+func _update_pleasure_preview() -> void:
+	if not is_instance_valid(pleasure_bar):
+		return
+	var change: int = PleasureBarPreviews.get_change_for_player(main_game)
+	pleasure_bar.set_pleasure_preview(change, PleasureBarPreviews.get_color_for_change(change, true))
+
+### Shows the energy cost of the card being dragged - an Action Card (cost depends on
+### whichever opponent is under the cursor) or an Event Card (cost is player-only, so
+### it shows for the whole drag) - or, when nothing is dragged, of the card under the
+### mouse: an Event Card in the hand, or an Action Card (only the player's own cost
+### modifiers, like the number on the card). Hidden otherwise. Polled every frame to
+### match the live cost preview on the card itself (see ActionCard/EventCard).
 func _update_energy_delta_label() -> void:
 	var viewport: Viewport = get_viewport()
-	if not viewport.gui_is_dragging():
-		energy_delta_label.hide()
-		return
-	var drag_data: Variant = viewport.gui_get_drag_data()
 	var cost: int
-	if drag_data is ActionCard:
-		var hovered_opponent: OpponentCard = OpponentCard.find_hovered_opponent_card(viewport)
-		if not hovered_opponent:
+	if viewport.gui_is_dragging():
+		var drag_data: Variant = viewport.gui_get_drag_data()
+		if drag_data is ActionCard:
+			var hovered_opponent: OpponentCard = OpponentCard.find_hovered_opponent_card(viewport)
+			if not hovered_opponent:
+				energy_delta_label.hide()
+				return
+			cost = main_game.action_manager.get_current_move_cost(
+				drag_data.represented_action_id, hovered_opponent.get_opponent_id())
+		elif drag_data is EventCard:
+			cost = _get_event_card_cost_with_copies(drag_data.event_card_instance)
+		else:
 			energy_delta_label.hide()
 			return
-		cost = main_game.action_manager.get_current_move_cost(
-			drag_data.represented_action_id, hovered_opponent.get_opponent_id())
-	elif drag_data is EventCard:
-		cost = EventCardDefinition.get_energy_cost_of_playing_card(
-			main_game.game_state, drag_data.event_card_instance.card_id)
 	else:
-		energy_delta_label.hide()
-		return
+		var hovered_event_card: EventCard = EventCard.find_hovered_hand_card(viewport)
+		var hovered_action_card: ActionCard = ActionCard.find_hovered_action_card(viewport)
+		if hovered_event_card:
+			cost = _get_event_card_cost_with_copies(hovered_event_card.event_card_instance)
+		elif hovered_action_card and hovered_action_card.represented_action_id != "" and main_game.game_state.current_encounter:
+			cost = main_game.action_manager.get_current_move_cost(hovered_action_card.represented_action_id)
+		else:
+			energy_delta_label.hide()
+			return
 	energy_delta_label.text = "-%s" % cost
 	energy_delta_label.modulate = SettingsManager.active_positive_color() if cost <= 0 else SettingsManager.active_negative_color()
 	energy_delta_label.show()
+
+### An event card's cost, times the copies a drop would play with it (Ctrl, FloatingPlayerHand.get_play_count()).
+func _get_event_card_cost_with_copies(card_instance: EventCardInstance) -> int:
+	var cost: int = EventCardDefinition.get_energy_cost_of_playing_card(main_game.game_state, card_instance.card_id)
+	return cost * FloatingPlayerHand.get_play_count_in_game(main_game, card_instance)
 
 func _ready() -> void:
 	super._ready()

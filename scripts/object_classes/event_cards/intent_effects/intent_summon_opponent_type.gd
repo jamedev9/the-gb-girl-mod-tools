@@ -22,3 +22,6 @@ func get_description_segments() -> Array[DescriptionSegment]:
 func description_includes_targeting(
 		_targeting_intent: TargetingSystem.TargetingMode, _targeting_rules: Array[TargetingRule]) -> bool:
 	return false
+
+func get_referenced_content_ids() -> Dictionary:
+	return {"opponent_types": [opponent_type_id]}

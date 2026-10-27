@@ -26,3 +26,6 @@ func get_description_segments() -> Array[DescriptionSegment]:
 		names.append(opponent_type.get_opponent_type_name() if opponent_type else "?")
 	return DescriptionBuilder.parse_template(
 		tr("EFFECTINTENT_REFILLROOMWITHOPPONENTTYPES_TEMPLATE"), {"names": DescriptionBuilder.join_with_and(names, true)})
+
+func get_referenced_content_ids() -> Dictionary:
+	return {"opponent_types": opponent_type_ids.duplicate()}

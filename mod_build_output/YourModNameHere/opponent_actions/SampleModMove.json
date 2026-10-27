@@ -1,0 +1,25 @@
+{
+	"_class": "OpponentActionDefinition",
+	"description": "Gives you 1 stack of {STATUS:sample_mod_status} for 3 turns.",
+	"effect_intents": [
+		{
+			"_class": "EffectAndTargetIntent",
+			"effect_intent": {
+				"_class": "ApplyStatusEffect",
+				"intent_effect_id": "",
+				"number_of_stacks": 1,
+				"status_duration": 3,
+				"status_id": "sample_mod_status"
+			},
+			"targeting_intent": 1,
+			"targeting_rules": []
+		}
+	],
+	"log_description": "",
+	"move_name": "Sample Mod Move",
+	"only_require_one_condition": false,
+	"opponent_action_id": "sample_mod_move",
+	"picture": "",
+	"trigger_conditions": [],
+	"video_tags": []
+}

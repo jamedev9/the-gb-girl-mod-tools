@@ -1,4 +1,5 @@
-extends Resource
+@tool
+extends ModExportable
 class_name OpponentActionDefinition
 
 @export var opponent_action_id: String
@@ -13,12 +14,22 @@ class_name OpponentActionDefinition
 
 @export var effect_intents: Array[EffectAndTargetIntent]
 
+### True for a Move loaded from a mod: its name and description are shown as written, never through tr().
+### @export_storage (stored, not shown in the Inspector) so duplicate() keeps it. The hand-written to_json_dict() never writes it.
+@export_storage var is_modded: bool = false
+
 func get_action_name() -> String:
+	if is_modded:
+		return move_name
 	return tr("OPPONENTACTIONDEFINITION_"+opponent_action_id.to_upper()+"_MOVE_NAME")
 func get_action_description() -> String:
+	if is_modded:
+		return description
 	return tr("OPPONENTACTIONDEFINITION_"+opponent_action_id.to_upper()+"_DESCRIPTION")
 
 func get_translation_entries() -> Array[Dictionary]:
+	if is_modded:
+		return [] ### Mod text is shown as written, and must not be written into game.csv by the editor's auto-localization.
 	var prefix: String = "OPPONENTACTIONDEFINITION_"+opponent_action_id.to_upper()
 	return [
 		{"key": prefix+"_MOVE_NAME", "text": move_name},
@@ -84,3 +95,86 @@ func should_action_fire(
 			return true
 		#print("Trigger is not met, returning false")
 		return false
+
+### The registered content this Move's effects hand out or act with (kind -> ids, see EffectIntent.get_referenced_content_ids()).
+### A mod Move naming something that isn't installed is skipped on load.
+func get_referenced_content_ids() -> Dictionary:
+	var referenced: Dictionary = {}
+	for intent in effect_intents:
+		if intent == null or intent.effect_intent == null:
+			continue
+		var intent_ids: Dictionary = intent.effect_intent.get_referenced_content_ids()
+		for kind in intent_ids.keys():
+			var ids: Array = referenced.get(kind, [])
+			for content_id in intent_ids[kind]:
+				if content_id not in ids:
+					ids.append(content_id)
+			referenced[kind] = ids
+	return referenced
+
+#region Mod export
+func get_mod_export_subfolder() -> String:
+	return "opponent_actions"
+
+func get_file_reference_fields() -> Dictionary:
+	return {"picture": "images"}
+
+### Hand-written rather than the generic ModExportable default because picture: Texture2D is a file reference (see
+### get_file_reference_fields()), like StatusEffectDefinition. video_tags are written by name. The trigger conditions and
+### effects serialize through their own (generic) to_json_dict().
+func to_json_dict() -> Dictionary:
+	var video_tag_names: Array = []
+	for tag in video_tags:
+		video_tag_names.append(VideoClip.ActionTags.keys()[tag])
+	var condition_dicts: Array = []
+	for condition in trigger_conditions:
+		if condition:
+			condition_dicts.append(condition.to_json_dict())
+	var intent_dicts: Array = []
+	for intent in effect_intents:
+		if intent:
+			intent_dicts.append(intent.to_json_dict())
+
+	return {
+		"_class": get_script().get_global_name(),
+		"opponent_action_id": opponent_action_id,
+		"move_name": move_name,
+		"description": description,
+		"log_description": log_description,
+		"picture": ModExportable.resolve_to_res_path(picture.resource_path, resource_path) if picture else "",
+		"video_tags": video_tag_names,
+		"only_require_one_condition": only_require_one_condition,
+		"trigger_conditions": condition_dicts,
+		"effect_intents": intent_dicts,
+	}
+
+### mod_folder_path: the mod's images folder (resolves picture, see get_file_reference_fields()). Conditions and effects
+### are rebuilt through ModdableResourceRegistry.instantiate() from their "_class" tags.
+static func from_json_dict(data: Dictionary, mod_folder_path: String = "") -> OpponentActionDefinition:
+	var action_def: OpponentActionDefinition = OpponentActionDefinition.new()
+	action_def.opponent_action_id = str(data.get("opponent_action_id", ""))
+	action_def.move_name = str(data.get("move_name", ""))
+	action_def.description = str(data.get("description", ""))
+	action_def.log_description = str(data.get("log_description", ""))
+	action_def.only_require_one_condition = bool(data.get("only_require_one_condition", false))
+
+	for tag_name in data.get("video_tags", []):
+		var tag_key: String = ModExportable.find_case_insensitive_enum_key(VideoClip.ActionTags.keys(), str(tag_name))
+		if tag_key != "":
+			action_def.video_tags.append(VideoClip.ActionTags[tag_key])
+
+	var picture_file_name: String = data.get("picture", "")
+	if picture_file_name != "" and mod_folder_path != "":
+		action_def.picture = Utils.load_texture_from_path(mod_folder_path.path_join(picture_file_name))
+
+	for condition_data in data.get("trigger_conditions", []):
+		var condition: TriggerCondition = ModdableResourceRegistry.instantiate(condition_data) as TriggerCondition
+		if condition:
+			action_def.trigger_conditions.append(condition)
+	for intent_data in data.get("effect_intents", []):
+		var intent: EffectAndTargetIntent = ModdableResourceRegistry.instantiate(intent_data) as EffectAndTargetIntent
+		if intent:
+			action_def.effect_intents.append(intent)
+
+	return action_def
+#endregion

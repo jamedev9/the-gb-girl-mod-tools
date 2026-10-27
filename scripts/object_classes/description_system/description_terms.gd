@@ -104,7 +104,7 @@ static func event_card_term(
 		return DescriptionSegment.text_segment(definition.get_card_name())
 	var description: Array[DescriptionSegment] = EffectAndTargetIntent.describe_all(definition.get_effect_intents())
 	if description.is_empty():
-		description = DescriptionBuilder.parse_template(definition.get_card_description())
+		description = definition.get_card_description_segments()
 	_finish_building(guard_key)
 	### The tooltip shows the card itself (PopupController); the description is the text fallback.
 	return DescriptionSegment.card_segment(definition.get_card_name(), definition.card_type_id, description, permanence)

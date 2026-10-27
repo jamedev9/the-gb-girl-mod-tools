@@ -1,7 +1,7 @@
 extends Cardgame_UI_Element
 class_name EventCardPanelWithTooltip
 
-@export var card_name_label: Label
+@export var card_name_label: ShrinkToFitLabel
 @export var card_picture: TextureRect
 
 @export var id_of_displayed_card: String
@@ -34,7 +34,7 @@ func update_card_info(card_id: String, given_card_permanence: CardInstance.CardP
 
 func _set_card_name(card_def: EventCardDefinition) -> void:
 	var name_text: String = card_def.get_card_name()
-	card_name_label.text = name_text
+	card_name_label.set_fitted_text(name_text)
 
 func _on_mouse_entered():
 	#print("Mous entered card panel")

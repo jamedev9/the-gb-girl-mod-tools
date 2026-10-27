@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="OpponentActionDefinition" format=3 uid="uid://bbnhc34w0ylyp"]
+
+[ext_resource type="Script" uid="uid://4nxk38bd7tb" path="res://scripts/object_classes/opponent_actions/opponent_action_def.gd" id="1_move"]
+[ext_resource type="Script" uid="uid://xwmyihojt71y" path="res://scripts/object_classes/effect_and_target_intention/effect_and_target_intent.gd" id="2_intent"]
+[ext_resource type="Script" uid="uid://c0l7fu6wab18q" path="res://scripts/object_classes/event_cards/targeting_rules/targeting_rule.gd" id="3_450bu"]
+[ext_resource type="Script" uid="uid://b1blk04aor0ss" path="res://scripts/object_classes/event_cards/intent_effects/apply_status_effect.gd" id="3_apply_status"]
+[ext_resource type="Script" uid="uid://ctbm05yysorbt" path="res://scripts/object_classes/trigger_conditions/trigger_condition.gd" id="5_g32tp"]
+
+[sub_resource type="Resource" id="Resource_apply_status"]
+script = ExtResource("3_apply_status")
+status_id = "sample_mod_status"
+status_duration = 3
+
+[sub_resource type="Resource" id="Resource_intent"]
+script = ExtResource("2_intent")
+targeting_intent = 1
+effect_intent = SubResource("Resource_apply_status")
+
+[resource]
+script = ExtResource("1_move")
+opponent_action_id = "sample_mod_move"
+move_name = "Sample Mod Move"
+description = "Gives you 1 stack of {STATUS:sample_mod_status} for 3 turns."
+effect_intents = Array[ExtResource("2_intent")]([SubResource("Resource_intent")])

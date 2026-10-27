@@ -14,6 +14,18 @@ func create_intent_context(_game_state:GameState,_intent_context: EffectContext)
 		context.damage_amount = self.damage
 	return context
 
+### The roll can't be known in advance (and must not be made here): the preview shows the Pleasure it gives.
+func create_pleasure_preview_context(_game_state: GameState, _intent_context: EffectContext) -> EffectContext:
+	var context: EffectContext = EffectContext.new()
+	context.damage_amount = self.damage
+	return context
+
+func get_pleasure_kind() -> PleasureKind:
+	return PleasureKind.GIVES
+
+func get_described_pleasure_amount() -> int:
+	return damage
+
 func get_description_segments() -> Array[DescriptionSegment]:
 	return DescriptionBuilder.parse_template(
 		tr("EFFECTINTENT_RANDOMLYHEALORDEALDAMAGE_TEMPLATE"),

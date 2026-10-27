@@ -152,6 +152,21 @@ var new_opponent_spawned: OpponentInstance
 # Unlocking rewards:
 var unlock_rewards_to_give_player: Array[String]
 
+### The Pleasure this context gives once every multiplier the MODIFY step added is applied, rounded. The one rounding rule for
+### damage, used by MainCardgame._deal_damage_from_effect() and the live previews (PleasurePreview).
+func get_damage_after_multipliers() -> int:
+	return _apply_multipliers(damage_amount, damage_multipliers)
+
+### Same for the Pleasure this context takes away (MainCardgame._heal_from_effect()).
+func get_healing_after_multipliers() -> int:
+	return _apply_multipliers(healing_amount, healing_multipliers)
+
+static func _apply_multipliers(amount: int, multipliers: Array[float]) -> int:
+	var total_multiplier: float = 1
+	for multiplier in multipliers:
+		total_multiplier *= multiplier
+	return int(round(float(amount) * total_multiplier))
+
 static func new_move_player_action_intent(
 	_game_state: GameState,
 	action_id: String,

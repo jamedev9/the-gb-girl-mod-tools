@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="StatusEffectDefinition" format=3]
+
+[ext_resource type="Script" path="res://scripts/object_classes/status_effects/status_effect.gd" id="1_status"]
+[ext_resource type="Script" path="res://scripts/object_classes/status_effects/status_tick_component/status_tick_component.gd" id="2_tick_base"]
+[ext_resource type="Script" path="res://scripts/object_classes/status_effects/status_tick_component/damage_over_time/DamageOverTime.gd" id="3_tick"]
+[ext_resource type="Script" path="res://scripts/object_classes/effect_and_target_intention/effect_and_target_intent.gd" id="4_intent"]
+[ext_resource type="Script" path="res://scripts/object_classes/event_cards/intent_effects/deal_damage_effect.gd" id="5_damage"]
+[ext_resource type="Texture2D" path="res://mod_export_data/images/sample_status.png" id="6_picture"]
+
+[sub_resource type="Resource" id="Resource_damage"]
+script = ExtResource("5_damage")
+damage = 5
+scale_with_stacks = true
+
+[sub_resource type="Resource" id="Resource_intent"]
+script = ExtResource("4_intent")
+targeting_intent = 5
+effect_intent = SubResource("Resource_damage")
+
+[sub_resource type="Resource" id="Resource_tick"]
+script = ExtResource("3_tick")
+tick_component_id = "sample_mod_status_tick"
+effect_intents = Array[ExtResource("4_intent")]([SubResource("Resource_intent")])
+
+[resource]
+script = ExtResource("1_status")
+status_id = "sample_mod_status"
+status_name = "Sample Mod Status"
+status_description = "Gives 5 {PLEASURE} per stack each turn."
+status_picture = ExtResource("6_picture")
+status_category = 1
+stackable = true
+ticking_effect_components = Array[ExtResource("2_tick_base")]([SubResource("Resource_tick")])

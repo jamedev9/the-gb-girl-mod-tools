@@ -67,6 +67,7 @@ var DEFAULT_CURRENT_BUILD: Dictionary ={
 
 func _retroactively_add_missing_features_() -> void:
 	### Called by meta game to add new features when loading old saves.
+	_restore_set_aside_cards()
 	_give_player_missing_passives()
 	_add_default_passives_()
 	_add_default_passives_to_all_builds()
@@ -78,6 +79,123 @@ func _retroactively_add_missing_features_() -> void:
 	_restore_lost_action_progress()
 	_apply_analqueen_max_pleasure_buff()
 	_add_missing_edging_threshold()
+	_set_aside_cards_that_are_not_installed()
+
+#region Cards that aren't installed (a disabled or removed mod's)
+### Every card id the save holds whose card isn't registered (its mod is disabled or removed) is moved out of the lists the
+### game reads into set_aside_cards, so nothing that reads cards can trip over it (the card view stopped showing any card).
+### When the card is installed again, the next load puts it back where it was. Runs on every load: the restore first in
+### _retroactively_add_missing_features_() (so the migrations see every card), the setting aside last.
+### Each entry: {"where": ..., "card_id": ..., and "count" / "build" ("" = the current build) / "action_id" /
+### "replaced_with" (what a selected slot was set to instead) where it applies}. Untyped and JSON-safe like all save data.
+var set_aside_cards: Array = []
+
+const _BUILD_CURRENT: String = ""
+
+func _is_card_installed(card_id: String) -> bool:
+	return AutoloadDatabase.get_event_card_def_by_id(card_id) != null
+
+func _set_aside_cards_that_are_not_installed() -> void:
+	for card_id in owned_event_cards.keys():
+		if not _is_card_installed(card_id):
+			set_aside_cards.append({"where": "owned", "card_id": card_id, "count": owned_event_cards[card_id]})
+			owned_event_cards.erase(card_id)
+	for card_id in orgams_cards_unlocked.duplicate():
+		if not _is_card_installed(card_id):
+			set_aside_cards.append({"where": "orgasm_card", "card_id": card_id})
+			orgams_cards_unlocked.erase(card_id)
+	for card_id in owned_ally_cards.duplicate():
+		if not _is_card_installed(card_id):
+			set_aside_cards.append({"where": "ally_card", "card_id": card_id})
+			owned_ally_cards.erase(card_id)
+	for action_id in reward_cards_unlocked_for_actions.keys():
+		for card_id in reward_cards_unlocked_for_actions[action_id].duplicate():
+			if not _is_card_installed(card_id):
+				set_aside_cards.append({"where": "action_reward_card", "card_id": card_id, "action_id": action_id})
+				reward_cards_unlocked_for_actions[action_id].erase(card_id)
+	for action_id in reward_cards_from_actions.keys():
+		var selected_card_id: String = reward_cards_from_actions[action_id]
+		if _is_card_installed(selected_card_id):
+			continue
+		var replacement: String = ""
+		for card_id in get_reward_cards_for_action(action_id):
+			if _is_card_installed(card_id):
+				replacement = card_id
+				break
+		set_aside_cards.append({"where": "selected_action_reward_card", "card_id": selected_card_id, "action_id": action_id, "replaced_with": replacement})
+		if replacement == "":
+			reward_cards_from_actions.erase(action_id)
+		else:
+			reward_cards_from_actions[action_id] = replacement
+	_set_aside_build_cards(current_build, _BUILD_CURRENT)
+	for build_name in saved_builds.keys():
+		_set_aside_build_cards(saved_builds[build_name], build_name)
+
+func _set_aside_build_cards(build: Dictionary, build_name: String) -> void:
+	var deck: Dictionary = build.get("event_cards_deck", {})
+	for card_id in deck.keys():
+		if not _is_card_installed(card_id):
+			set_aside_cards.append({"where": "build_deck", "card_id": card_id, "count": deck[card_id], "build": build_name})
+			deck.erase(card_id)
+	var ally_card_id: String = build.get("summon_ally_card", "")
+	if ally_card_id != "" and not _is_card_installed(ally_card_id):
+		set_aside_cards.append({"where": "build_ally_card", "card_id": ally_card_id, "build": build_name, "replaced_with": ""})
+		build["summon_ally_card"] = ""
+	var orgasm_card_id: String = build.get("current_orgasm_card_id", "")
+	if orgasm_card_id != "" and not _is_card_installed(orgasm_card_id):
+		set_aside_cards.append({"where": "build_orgasm_card", "card_id": orgasm_card_id, "build": build_name, "replaced_with": get_default_orgasm_card()})
+		build["current_orgasm_card_id"] = get_default_orgasm_card()
+
+### Puts back every set-aside card that is installed again. A selected slot (ally, Orgasm Card, an Action's reward card)
+### only gets its card back if it still holds what it was set to meanwhile: a choice the player made since then wins.
+### A card whose build preset was deleted meanwhile is dropped.
+func _restore_set_aside_cards() -> void:
+	var still_set_aside: Array = []
+	for entry in set_aside_cards:
+		var card_id: String = str(entry.get("card_id", ""))
+		if not _is_card_installed(card_id):
+			still_set_aside.append(entry)
+			continue
+		var build: Dictionary = _get_build_for_set_aside_entry(entry)
+		match str(entry.get("where", "")):
+			"owned":
+				owned_event_cards[card_id] = int(owned_event_cards.get(card_id, 0)) + int(entry.get("count", 1))
+			"orgasm_card":
+				unlock_orgasm_card(card_id)
+			"ally_card":
+				if card_id not in owned_ally_cards:
+					owned_ally_cards.append(card_id)
+			"action_reward_card":
+				var action_id: String = str(entry.get("action_id", ""))
+				if action_id not in reward_cards_unlocked_for_actions.keys():
+					reward_cards_unlocked_for_actions[action_id] = []
+				if card_id not in reward_cards_unlocked_for_actions[action_id]:
+					reward_cards_unlocked_for_actions[action_id].append(card_id)
+			"selected_action_reward_card":
+				var action_id: String = str(entry.get("action_id", ""))
+				if str(reward_cards_from_actions.get(action_id, "")) == str(entry.get("replaced_with", "")):
+					reward_cards_from_actions[action_id] = card_id
+			"build_deck":
+				if not build.is_empty():
+					if not build.has("event_cards_deck"):
+						build["event_cards_deck"] = {}
+					var deck: Dictionary = build["event_cards_deck"]
+					deck[card_id] = int(deck.get(card_id, 0)) + int(entry.get("count", 1))
+			"build_ally_card":
+				if not build.is_empty() and str(build.get("summon_ally_card", "")) == str(entry.get("replaced_with", "")):
+					build["summon_ally_card"] = card_id
+			"build_orgasm_card":
+				if not build.is_empty() and str(build.get("current_orgasm_card_id", "")) == str(entry.get("replaced_with", "")):
+					build["current_orgasm_card_id"] = card_id
+	set_aside_cards = still_set_aside
+
+### The build a set-aside entry belongs to; empty when it was a preset that has been deleted since.
+func _get_build_for_set_aside_entry(entry: Dictionary) -> Dictionary:
+	var build_name: String = str(entry.get("build", _BUILD_CURRENT))
+	if build_name == _BUILD_CURRENT:
+		return current_build
+	return saved_builds.get(build_name, {})
+#endregion
 
 var retroactive_migrations_applied: Dictionary = {} ### migration ID (String) -> true, once applied
 
@@ -1039,6 +1157,7 @@ func to_dict() -> Dictionary:
 		"owned_ally_cards":owned_ally_cards,
 		"retroactive_migrations_applied":retroactive_migrations_applied,
 		"selected_map_id":selected_map_id,
+		"set_aside_cards":set_aside_cards,
 		#"tutorial_stages_completed":tutorial_stages_completed
 	}
 
@@ -1066,6 +1185,7 @@ func from_dict(data: Dictionary) -> void:
 	game_version = data.get("game_version",_default_game_version)
 	custom_encounter_state = data.get("custom_encounter_state",{})
 	selected_map_id = str(data.get("selected_map_id", ""))
+	set_aside_cards = data.get("set_aside_cards", [])
 	orgasms_lifetime = data.get("orgasms_lifetime",0)
 	orgams_cards_unlocked = data.get("orgams_cards_unlocked",["orgasm_muscle_spasm"])
 	most_guys_cumming_in_one_turn = data.get("most_guys_cumming_in_one_turn",0)

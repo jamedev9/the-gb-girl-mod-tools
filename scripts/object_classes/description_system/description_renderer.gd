@@ -18,6 +18,8 @@ const NESTED_COLOR: String = "#a0e0e0"
 ### Section heading color ("Modifiers"/"Triggers") - a warm, UI-chrome tone distinct from every
 ### GameplayKeyword color and from NESTED_COLOR, so a heading reads as structure, not content.
 const HEADING_COLOR: String = "#ffe066"
+### " (currently {amount})" after a per-unit Pleasure rule (a filled LIVE_PLEASURE segment with live_shows_total).
+const LIVE_PLEASURE_TOTAL_KEY: String = "DESCRIPTION_LIVE_PLEASURE_CURRENTLY"
 
 static func to_bbcode(segments: Array[DescriptionSegment]) -> String:
 	return _render(segments, false, [])
@@ -44,7 +46,28 @@ static func _render(segments: Array[DescriptionSegment], as_links: bool, link_ta
 				result += _render_heading(segment.text)
 			DescriptionSegment.Type.EMPHASIS:
 				result += _render_emphasis(segment)
+			DescriptionSegment.Type.LIVE_PLEASURE:
+				result += _render_live_pleasure(segment)
 	return result
+
+### Unfilled: the plain text (the base number, or nothing for the "(currently N)" form). Filled: the live amount, in the color
+### LivePleasureValues gave it (the positive/negative color of the colorblind settings) when modifiers change it.
+static func _render_live_pleasure(segment: DescriptionSegment) -> String:
+	if not segment.live_is_filled:
+		return _escape_bbcode(segment.text)
+	var amount_bbcode: String = str(segment.live_amount)
+	if segment.live_color_html != "":
+		amount_bbcode = "[color=#%s]%s[/color]" % [segment.live_color_html, amount_bbcode]
+	if segment.live_shows_total:
+		return _escape_bbcode(TranslationServer.translate(LIVE_PLEASURE_TOTAL_KEY)).replace("{amount}", amount_bbcode)
+	return amount_bbcode
+
+static func _live_pleasure_plain_text(segment: DescriptionSegment) -> String:
+	if not segment.live_is_filled:
+		return segment.text
+	if segment.live_shows_total:
+		return TranslationServer.translate(LIVE_PLEASURE_TOTAL_KEY).replace("{amount}", str(segment.live_amount))
+	return str(segment.live_amount)
 
 static func _render_emphasis(segment: DescriptionSegment) -> String:
 	if segment.emphasis_italic:
@@ -100,6 +123,8 @@ static func to_plain_text(segments: Array[DescriptionSegment]) -> String:
 				result += segment.text
 			DescriptionSegment.Type.EMPHASIS:
 				result += segment.text
+			DescriptionSegment.Type.LIVE_PLEASURE:
+				result += _live_pleasure_plain_text(segment)
 	return result
 
 static func _escape_bbcode(text: String) -> String:

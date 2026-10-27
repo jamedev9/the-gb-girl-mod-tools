@@ -13,7 +13,11 @@ class_name DescriptionSegment
 ### differs between them, not this data.
 ### An EMPHASIS is a value or a name picked out in the text without being a link (a number, an encounter's name): bold,
 ### and italic too when emphasis_italic is set (names).
-enum Type { TEXT, KEYWORD, NESTED, HEADING, EMPHASIS }
+### A LIVE_PLEASURE is the Pleasure number of one effect (live_effect_intent), which a tooltip that knows the effect's
+### situation fills in with the live amount (LivePleasureValues.apply_to(), colored when modifiers change it). Unfilled it
+### shows text: the plain number, or nothing for the "(currently N)" form (live_shows_total, for effects counted per energy,
+### per orgasm, per stack ...).
+enum Type { TEXT, KEYWORD, NESTED, HEADING, EMPHASIS, LIVE_PLEASURE }
 
 var type: Type
 var text: String = "" ### literal text for TEXT/HEADING segments, or the label for NESTED segments
@@ -27,6 +31,18 @@ var emphasis_italic: bool = false
 ### How that card looks in its tooltip (a CardInstance.CardPermanence value: permanent, temporary/combo, reward, problem, ...).
 ### Taken from the effect that hands the card out (CardsToAddIntent.permanence), see DescriptionTerms.
 var card_permanence: int = CardInstance.CardPermanence.PERMANENT
+### LIVE_PLEASURE segments only (see Type). The effect whose number this is, and whether it shows " (currently N)" after a
+### per-unit rule instead of being the number itself.
+var live_effect_intent: EffectIntent
+var live_shows_total: bool = false
+### LIVE_PLEASURE segments only: the number is the per-unit amount of a counted effect ("5" of "5 Pleasure per Energy"), filled with
+### what one unit gives after modifiers rather than the total (an event card's {VALUE:...} token).
+var live_shows_per_unit: bool = false
+### Filled in by LivePleasureValues.apply_to(): the amount after modifiers, and its color as an HTML color ("" = the text's own
+### color, when modifiers don't change it).
+var live_is_filled: bool = false
+var live_amount: int = 0
+var live_color_html: String = ""
 
 static func text_segment(given_text: String) -> DescriptionSegment:
 	var segment := DescriptionSegment.new()
@@ -61,6 +77,27 @@ static func emphasis_segment(given_text: String, italic: bool = false) -> Descri
 	segment.type = Type.EMPHASIS
 	segment.text = given_text
 	segment.emphasis_italic = italic
+	return segment
+
+### The Pleasure number of effect_intent, shown as base_text until a tooltip fills in the live amount.
+static func live_pleasure_segment(base_text: String, effect_intent: EffectIntent) -> DescriptionSegment:
+	var segment := DescriptionSegment.new()
+	segment.type = Type.LIVE_PLEASURE
+	segment.text = base_text
+	segment.live_effect_intent = effect_intent
+	return segment
+
+### The per-unit number of a counted effect_intent ("5" of "5 Pleasure per Energy"), live as what one unit gives after modifiers.
+static func live_pleasure_per_unit_segment(base_text: String, effect_intent: EffectIntent) -> DescriptionSegment:
+	var segment: DescriptionSegment = live_pleasure_segment(base_text, effect_intent)
+	segment.live_shows_per_unit = true
+	return segment
+
+### " (currently N)" after a per-unit rule ("5 Pleasure per Energy"): the total effect_intent comes to right now. Shows nothing
+### until a tooltip fills it in.
+static func live_pleasure_total_segment(effect_intent: EffectIntent) -> DescriptionSegment:
+	var segment: DescriptionSegment = live_pleasure_segment("", effect_intent)
+	segment.live_shows_total = true
 	return segment
 
 static func heading_segment(given_text: String) -> DescriptionSegment:

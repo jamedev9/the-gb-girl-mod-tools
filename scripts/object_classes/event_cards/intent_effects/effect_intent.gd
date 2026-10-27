@@ -16,6 +16,35 @@ func create_intent_context(_game_state:GameState,_intent_context: EffectContext)
 func scale_context_by_stacks(_context: EffectContext, _stacks: int) -> void:
 	pass
 
+### For the live Pleasure previews (PleasurePreview): the context this intent would make right now, with only its
+### damage_amount / healing_amount, or null when the intent never changes Pleasure (base). Called every frame, so it must
+### change nothing (no state, no randomness). An intent that gives or takes away Pleasure overrides it, usually by
+### returning create_intent_context().
+func create_pleasure_preview_context(_game_state: GameState, _intent_context: EffectContext) -> EffectContext:
+	return null
+
+### What this intent does to its target's Pleasure: gives it, takes it away, or neither (base). Hand-written card texts find the
+### effect a {VALUE:pleasure_...} token stands for with it (EventCardDefinition.get_card_description_segments()).
+enum PleasureKind { NONE, GIVES, TAKES_AWAY }
+func get_pleasure_kind() -> PleasureKind:
+	return PleasureKind.NONE
+
+### The Pleasure number this intent's own description states (for a counted one, the amount per unit: "5 per Energy").
+func get_described_pleasure_amount() -> int:
+	return 0
+
+### True when the Pleasure is counted per something (per Energy, per Orgasm, per card played): its live value is a total
+### (" (currently N)"), never the stated number itself.
+func is_pleasure_counted() -> bool:
+	return false
+
+### The registered content this intent hands out or acts with, by id: kind ("statuses", "cards", "actions", "passives",
+### "moves", "opponent_types", "rewards") -> Array of ids. A mod's content that names something not installed is skipped
+### on load (AutoloadDatabase._get_missing_content()). Base: nothing. An intent that applies, gives, summons or triggers
+### content by id overrides it; ids that only filter (a condition, a targeting rule) are left out, they just match nothing.
+func get_referenced_content_ids() -> Dictionary:
+	return {}
+
 ### Generic description support (see DescriptionBuilder for the shared parsing logic this
 ### is built on). Overridden per subclass with that class's own template + substitutions.
 ### Base fallback just shows the class name, so any subclass that hasn't been given a real

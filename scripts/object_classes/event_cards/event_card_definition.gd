@@ -64,6 +64,72 @@ func get_card_description() -> String:
 	var key_string:String = _get_description_key_string()
 	return tr(key_string)
 
+### The card's text as description segments (what the card face shows): {KEYWORD} and {STATUS:id}-style tokens become terms, and
+### {VALUE:...} tokens become this card's live Pleasure numbers, which LivePleasureValues.for_event_card() fills in. A VALUE token
+### names one of the card's own Pleasure effects (not the Actions it triggers):
+###   pleasure_given  - Pleasure it gives a Partner      pleasure_gained - Pleasure it gives the player
+###   pleasure_taken  - Pleasure it takes from a Partner pleasure_lost   - Pleasure it takes from the player
+### "_2", "_3" ... picks the second, third such effect (in effect_intents order): {VALUE:pleasure_given_2}. The token is the number
+### itself (decided 2026-10-27: no " (currently N)" on cards); for an effect counted per Energy, per Orgasm, per card played ... it is
+### the per-unit number ("5" of "5 Pleasure per Energy"), live as what one unit gives after modifiers.
+func get_card_description_segments() -> Array[DescriptionSegment]:
+	var text: String = get_card_description()
+	return DescriptionBuilder.parse_template(text, _get_value_token_substitutions(text))
+
+const VALUE_TOKEN_KIND: String = "VALUE"
+
+func _get_value_token_substitutions(text: String) -> Dictionary:
+	var substitutions: Dictionary = {}
+	var token_regex: RegEx = RegEx.new()
+	token_regex.compile("\\{" + VALUE_TOKEN_KIND + ":(\\w+)\\}")
+	for match_result in token_regex.search_all(text):
+		var value_id: String = match_result.get_string(1)
+		substitutions[VALUE_TOKEN_KIND + ":" + value_id] = _make_value_segment(value_id)
+	return substitutions
+
+func _make_value_segment(value_id: String) -> DescriptionSegment:
+	var id_regex: RegEx = RegEx.new()
+	id_regex.compile("^(pleasure_given|pleasure_gained|pleasure_taken|pleasure_lost)(?:_(\\d+))?$")
+	var id_match: RegExMatch = id_regex.search(value_id)
+	var effect_intent: EffectIntent = null
+	if id_match:
+		var effect_number: int = int(id_match.get_string(2)) if id_match.get_string(2) != "" else 1
+		effect_intent = _find_pleasure_effect(id_match.get_string(1), effect_number)
+	if effect_intent == null:
+		push_warning("Card '%s': {%s:%s} names no Pleasure effect of the card." % [card_type_id, VALUE_TOKEN_KIND, value_id])
+		return DescriptionSegment.text_segment("?")
+	var amount_text: String = str(effect_intent.get_described_pleasure_amount())
+	if effect_intent.is_pleasure_counted():
+		return DescriptionSegment.live_pleasure_per_unit_segment(amount_text, effect_intent)
+	return DescriptionSegment.live_pleasure_segment(amount_text, effect_intent)
+
+### The effect_number-th (1 = first) of the card's own effects of that kind. The card's source is the player, so PLAYER and
+### SOURCE_OF_EFFECT targeting both mean the player.
+func _find_pleasure_effect(value_kind: String, effect_number: int) -> EffectIntent:
+	var found_count: int = 0
+	for intent in effect_intents:
+		if intent == null or intent.effect_intent == null:
+			continue
+		var on_player: bool = intent.targeting_intent == TargetingSystem.TargetingMode.PLAYER \
+			or intent.targeting_intent == TargetingSystem.TargetingMode.SOURCE_OF_EFFECT
+		var kind: EffectIntent.PleasureKind = intent.effect_intent.get_pleasure_kind()
+		var matches: bool = false
+		match value_kind:
+			"pleasure_given":
+				matches = kind == EffectIntent.PleasureKind.GIVES and not on_player
+			"pleasure_gained":
+				matches = kind == EffectIntent.PleasureKind.GIVES and on_player
+			"pleasure_taken":
+				matches = kind == EffectIntent.PleasureKind.TAKES_AWAY and not on_player
+			"pleasure_lost":
+				matches = kind == EffectIntent.PleasureKind.TAKES_AWAY and on_player
+		if not matches:
+			continue
+		found_count += 1
+		if found_count == effect_number:
+			return intent.effect_intent
+	return null
+
 func _get_description_key_string() -> String:
 	return resoruce_type_string+_get_name_string()+"_DESCRIPTION"
 

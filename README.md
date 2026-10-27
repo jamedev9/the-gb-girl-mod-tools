@@ -22,6 +22,9 @@ Current capabilities of the mod tool:
 * Making map regions
 * Making maps (your own overworld map, picked in-game from a dropdown)
 * Adding custom rewards
+* Making Partners (opponent types)
+* Making Moves for Partners
+* Making name lists for Partners
 
 Your content refers to other content by its ID: the IDs of the base game's content, or the IDs of content in your mod.
 
@@ -77,7 +80,7 @@ Fill in:
 * Music, one of:
   * **Encounter Music**: your own `.ogg`, `.mp3` or `.wav` file. Other formats can't be loaded by the game. It is copied into the mod when you export.
   * **Music Track Id**: one of the game's soundtracks, by its ID (see "Resource IDs"). Leave Encounter Music empty when you use it: your own file wins if both are set.
-* **Opponents In Encounter Reserves**: the Partners in the encounter, as opponent type ID -> how many. At least one is needed.
+* **Opponents In Encounter Reserves**: the Partners in the encounter, as opponent type ID -> how many: yours (see "Partners") or the game's. At least one is needed.
 * **Min / Max Simultaneous Opponents**: how many Partners can be active at once (Max 0 = the game's default).
 * Optional:
   * **Fixed Spawn Order**: spawn number -> opponent type ID, for Partners that must come at a set point.
@@ -141,10 +144,60 @@ A reward is skipped if it gives content that isn't installed for the player (for
 ### Saving
 Press **Save** in the tab, or save the project (Ctrl+S).
 
+## Moves
+Moves are what Partners do on their turn. Go to `mod_export_data/opponent_actions` and create a new OpponentActionDefinition resource for each Move.
+
+Fill in:
+* **Opponent Action Id**: a unique ID. It must not be the ID of one of the game's Moves (such a Move is skipped).
+* **Move Name** and **Description**: shown exactly as written.
+* **Picture**: any image in the project. It is copied into the mod when you export.
+* **Effect Intents**: what the Move does. These are made in the same way as the effects of an event card.
+* Optional:
+  * **Trigger Conditions**: the Move only does something when these are met. **Only Require One Condition** = one of them is enough.
+  * **Video Tags**: the kind of video clip that fits the Move.
+
+A Move is skipped if it uses content that isn't installed for the player (for example a status or card from another mod they removed).
+
+## Partners
+Partners are made from opponent types. Go to `mod_export_data/opponent_types` and create a new OpponentType resource for each kind of Partner.
+
+Fill in:
+* **Opponent Type Id**: a unique ID. It must not be the ID of one of the game's opponent types (such a type is skipped). Encounters name their Partners by this ID.
+* **Opponent Type Name**: shown exactly as written.
+* **Picture**: any image in the project. It is copied into the mod when you export. Modded Partners are always shown with this picture.
+* **Max Damage**: how much Pleasure makes the Partner orgasm.
+* **Orgasms Before Defeat**: how many orgasms defeat the Partner.
+* **Available Action Ids**: the Partner's Moves, by ID: yours (see "Moves") or the game's. The same Move can be listed more than once to make it come up more often.
+* **Action Strategy**: how the Partner picks its next Move:
+  * **Strategy_SelectRandomAction**: a random Move each turn.
+  * **Strategy_SequentialActionProgression**: the Moves in the listed order, then from the start again.
+  * **Strategy_FirstLinearThenRandom**: the Moves in the listed order once, then random ones. **Loop Entries At Or Above** = the random picks only use the Moves from this position in the list on (0 = all of them).
+* Names: the Partner gets a random name from both of these together:
+  * **Name Lists**: names only this Partner uses. Add a NameList here and fill in its **Names**.
+  * **Name List Ids**: shared lists by ID: yours (see "Name lists") or the game's (`white_male_names`, `dark_male_names`, `japanese_male_names`).
+* Optional:
+  * **Passive Effects**: passive IDs the Partner has.
+  * **Card Color**: the colour of the Partner's card.
+  * **Video Particpant Tags**: the kind of Partner, used to pick fitting video clips.
+  * **Summonable Ally**: whether the Partner can be summoned as an ally.
+
+**Appearance Variations** and **Visual Description** are not used by mods.
+
+If your Partner names a Move, passive or name list that isn't installed for the player, that one is left out. A Partner with no installed Move left is skipped, and encounters leave it out.
+
+## Name lists
+A name list is a list of names that several Partners can share. Go to `mod_export_data/name_lists` and create a new NameList resource.
+
+Fill in:
+* **Name List Id**: a unique ID. It must not be the ID of one of the game's lists (such a list is skipped).
+* **Names**: the names a Partner can get.
+
+Partners use the list through their **Name List Ids**.
+
 ## Exporting the mod
 When you are ready to build the mod, open and run the `mod_exporter.gd` script (Ctrl+Shift+X). This converts your resources into the right format inside the `mod_build_output` folder:
-* Pictures (encounters, status effects, characters, passives, cards) go into `images`, and encounter music into `music`.
-* Status effects, map regions, encounters and maps each get their own folder.
+* Pictures (encounters, status effects, characters, passives, cards, Moves, Partners) go into `images`, and encounter music into `music`.
+* Status effects, map regions, rewards, encounters, maps, Moves, Partners and name lists each get their own folder.
 * A map without a Map Id, or with a node that has no encounter, is not exported. The same goes for any resource that fails its checks. The Output panel says which file and why.
 
 Move the output folder into the game's mods folder:

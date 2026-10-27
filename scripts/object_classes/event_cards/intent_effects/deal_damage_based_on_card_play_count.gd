@@ -19,3 +19,15 @@ func create_intent_context(game_state:GameState,_intent_context: EffectContext) 
 	context.damage_amount = damage_per_play * effective_count
 
 	return context
+
+func create_pleasure_preview_context(game_state: GameState, intent_context: EffectContext) -> EffectContext:
+	return create_intent_context(game_state, intent_context)
+
+func get_pleasure_kind() -> PleasureKind:
+	return PleasureKind.GIVES
+
+func get_described_pleasure_amount() -> int:
+	return damage_per_play
+
+func is_pleasure_counted() -> bool:
+	return true

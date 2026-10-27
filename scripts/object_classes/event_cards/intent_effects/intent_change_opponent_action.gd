@@ -35,3 +35,6 @@ func get_targeted_description_segments(
 func description_includes_targeting(
 		_targeting_intent: TargetingSystem.TargetingMode, _targeting_rules: Array[TargetingRule]) -> bool:
 	return false
+
+func get_referenced_content_ids() -> Dictionary:
+	return {"moves": [opponent_action_id]}

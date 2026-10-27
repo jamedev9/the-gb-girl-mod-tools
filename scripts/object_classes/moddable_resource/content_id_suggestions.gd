@@ -22,6 +22,13 @@ static func apply_to_property(property: Dictionary, field_name: String, script_c
 	property.hint = PROPERTY_HINT_ENUM_SUGGESTION
 	property.hint_string = ",".join(get_ids(script_class, id_field))
 
+### The same for an Array[String] field (e.g. OpponentType.available_action_ids): every element gets the dropdown.
+static func apply_to_array_property(property: Dictionary, field_name: String, script_class: String, id_field: String) -> void:
+	if not Engine.is_editor_hint() or property.name != field_name:
+		return
+	property.hint = PROPERTY_HINT_TYPE_STRING
+	property.hint_string = "%d/%d:%s" % [TYPE_STRING, PROPERTY_HINT_ENUM_SUGGESTION, ",".join(get_ids(script_class, id_field))]
+
 ### Every id found in .tres files whose resource uses script_class (the file's own [resource], not sub-resources), sorted.
 static func get_ids(script_class: String, id_field: String) -> PackedStringArray:
 	var cache_key: String = script_class + "|" + id_field

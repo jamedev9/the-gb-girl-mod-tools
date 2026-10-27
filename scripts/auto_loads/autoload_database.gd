@@ -48,6 +48,7 @@ var map_region_definitions: Dictionary[String,MapRegionDefinition] = {}
 var character_definitions: Dictionary[String,CharacterDefinition] = {}
 var gameplay_keywords_by_id: Dictionary[String,GameplayKeyword] = {}
 var music_tracks_by_id: Dictionary[String,MusicTrack] = {}
+var name_lists_by_id: Dictionary[String,NameList] = {}
 
 ### === Hardcoded, not part of content packs (left as-is per your call) ===
 var player_actions_by_id: Dictionary[String,PlayerAction] = {}
@@ -167,7 +168,7 @@ func get_active_content_set() -> ContentSet:
 ### encounters the player actually sees is decided by the encounter map, not by registering them.
 var _types_open_in_full_rework: Array[Script] = [
 	EncounterDefinition, OpponentType, OpponentActionDefinition, PassiveEffectDefinition, StatusEffectDefinition,
-	EventCardDefinition, MapRegionDefinition, GameplayKeyword, MusicTrack,
+	EventCardDefinition, MapRegionDefinition, GameplayKeyword, MusicTrack, NameList,
 ]
 
 ### are put on the opponent types as they load). Its entries are registered after the scan, see _register_content_set_entries().
@@ -312,11 +313,17 @@ func _finish_loading_content_packs() -> void:
 		_load_character_definitions_from_mods()
 		_load_passive_effect_definitions_from_mods()
 		_load_event_card_definitions_from_mods()
+	### Mod statuses, map regions, rewards, name lists, Moves, opponent types, encounters and maps load in both modes (modding
+	### both load before either is checked for missing content; encounters after them (they name opponent types).
 	### Rewards before encounters (an encounter's rewards_granted_by_clearing may name a mod reward), after the content
 	### rewards hand out. Mod encounters are only ever played from a mod map, never the main one (see is_encounter_on_map()).
 	_load_status_effect_definitions_from_mods()
 	_load_map_region_definitions_from_mods()
 	_load_reward_definitions_from_mods()
+	_load_name_lists_from_mods()
+	_load_opponent_actions_from_mods()
+	_load_opponent_types_from_mods()
+	_drop_mod_moves_and_types_naming_missing_content()
 	_load_encounter_definitions_from_mods()
 	_load_encounter_maps_from_mods()
 
@@ -502,6 +509,7 @@ func _register_resource_types() -> void:
 		ResourceRegistration.new(PlayerAction, player_actions_by_id, Callable(self, "_get_player_action_keys")),
 		ResourceRegistration.new(GameplayKeyword, gameplay_keywords_by_id, Callable(self, "_get_gameplay_keyword_keys")),
 		ResourceRegistration.new(MusicTrack, music_tracks_by_id, Callable(self, "_get_music_track_keys")),
+		ResourceRegistration.new(NameList, name_lists_by_id, Callable(self, "_get_name_list_keys")),
 	]
 
 ### === Key extractors — one per type, named methods (no inline lambdas) ===
@@ -602,6 +610,9 @@ func _get_music_track_keys(resource: MusicTrack) -> Array:
 
 func get_music_track(track_id: String) -> MusicTrack:
 	return music_tracks_by_id.get(track_id, null)
+
+func _get_name_list_keys(resource: NameList) -> Array:
+	return [resource.name_list_id]
 
 ### === Simple getters, unchanged behavior ===
 func get_status_effect_by_id(status_id: String) -> StatusEffectDefinition:
@@ -889,20 +900,192 @@ func _load_reward_from_mod(mod_name: String, json_path: String) -> RewardDefinit
 
 ### "kind 'id'" for every id the reward names (RewardDefinition.get_referenced_content_ids()) that isn't registered.
 func _get_missing_reward_content(reward: RewardDefinition) -> Array[String]:
+	return _get_missing_content(reward.get_referenced_content_ids())
+
+### "kind 'id'" for every id in referenced (kind -> Array of ids, see RewardDefinition / EffectIntent
+### .get_referenced_content_ids()) that isn't registered. A kind with no registry here counts as missing.
+func _get_missing_content(referenced: Dictionary) -> Array[String]:
 	var registries: Dictionary = {
 		"passives": passive_effect_definitions,
 		"cards": event_cards_by_id,
 		"actions": player_actions_by_id,
 		"characters": character_definitions,
+		"statuses": status_effects_by_id,
+		"moves": opponent_actions,
+		"opponent_types": opponent_types,
+		"rewards": unlock_rewards,
 	}
 	var missing: Array[String] = []
-	var referenced: Dictionary = reward.get_referenced_content_ids()
 	for kind in referenced.keys():
 		var registry: Dictionary = registries.get(kind, {})
 		for content_id in referenced[kind]:
 			if not registry.has(content_id):
 				missing.append("%s '%s'" % [kind, content_id])
 	return missing
+
+### === Mod-loaded opponent Moves (JSON) ===
+### A mod Move may not take the id of a game Move (it would change the game's own Partners). A Move whose effects name
+### content that isn't installed is skipped too, but only after every mod type has loaded (_drop_mod_moves_naming_missing_content()):
+### a Move may name content of types that load after it.
+func _load_opponent_actions_from_mods() -> void:
+	var dir = DirAccess.open(MODS_ROOT)
+	if not dir:
+		return
+	dir.list_dir_begin()
+	var folder_name = dir.get_next()
+	while folder_name != "":
+		if dir.current_is_dir() and not folder_name.begins_with(".") and SettingsManager.is_mod_enabled_on_disk(folder_name):
+			var moves_folder: String = MODS_ROOT + "/" + folder_name + "/opponent_actions/"
+			if DirAccess.dir_exists_absolute(moves_folder):
+				var json_files = Utils.get_files_in_folder(moves_folder, "json")
+				for file in json_files:
+					var action_def: OpponentActionDefinition = _load_opponent_action_from_mod(folder_name, file)
+					if action_def == null:
+						continue
+					var existing_action: OpponentActionDefinition = opponent_actions.get(action_def.opponent_action_id, null)
+					if existing_action and not existing_action.is_modded:
+						push_warning("Mod '%s': Move '%s' has the id of one of the game's Moves - skipped." % [folder_name, action_def.opponent_action_id])
+						continue
+					action_def.is_modded = true
+					opponent_actions[action_def.opponent_action_id] = action_def
+		folder_name = dir.get_next()
+	dir.list_dir_end()
+
+func _load_opponent_action_from_mod(mod_name: String, json_path: String) -> OpponentActionDefinition:
+	var file: FileAccess = FileAccess.open(json_path, FileAccess.READ)
+	if not file:
+		push_error("Could not open mod Move file: %s" % json_path)
+		return null
+
+	var parsed = JSON.parse_string(file.get_as_text())
+	if parsed == null or not (parsed is Dictionary):
+		push_error("Invalid JSON in mod Move file: %s" % json_path)
+		return null
+
+	var action_def: OpponentActionDefinition = OpponentActionDefinition.from_json_dict(parsed, MODS_ROOT.path_join(mod_name).path_join("images"))
+	if action_def.opponent_action_id == "":
+		push_error("Mod Move file has no opponent_action_id: %s" % json_path)
+		return null
+	return action_def
+
+### Every mod Move whose effects name content that isn't installed (another mod's, disabled or removed, or a type that
+### doesn't load in this mode) is removed, so a Partner can never make it. Repeated until nothing changes: a Move that
+### switches to another mod Move loses its target when that one is removed. True when a Move was removed.
+func _drop_mod_moves_naming_missing_content() -> bool:
+	var removed_any: bool = false
+	var removed_this_pass: bool = true
+	while removed_this_pass:
+		removed_this_pass = false
+		for action_id: String in opponent_actions.keys():
+			var action_def: OpponentActionDefinition = opponent_actions[action_id]
+			if not action_def.is_modded:
+				continue
+			var missing_content: Array[String] = _get_missing_content(action_def.get_referenced_content_ids())
+			if missing_content.is_empty():
+				continue
+			push_warning("Mod Move '%s' names content that isn't installed (%s) - skipped." % [action_id, ", ".join(missing_content)])
+			opponent_actions.erase(action_id)
+			removed_this_pass = true
+			removed_any = true
+	return removed_any
+
+### Mod Moves and mod opponent types name each other: removing a Move can leave a type with no Moves (removed), and removing a
+### type can leave a Move that summons it naming nothing (removed). Repeated until nothing changes.
+func _drop_mod_moves_and_types_naming_missing_content() -> void:
+	var changed: bool = true
+	while changed:
+		changed = _drop_mod_moves_naming_missing_content()
+		if _drop_missing_content_from_mod_opponent_types():
+			changed = true
+
+### Leaves the Moves, passives and shared name lists that aren't installed out of every mod opponent type (a Partner just
+### has fewer Moves / passives / names). A type with no Move left is removed. True when a type was removed.
+func _drop_missing_content_from_mod_opponent_types() -> bool:
+	var removed_any: bool = false
+	for type_id: String in opponent_types.keys():
+		var opponent_type: OpponentType = opponent_types[type_id]
+		if not opponent_type.is_modded:
+			continue
+		var missing: Array[String] = []
+		opponent_type.available_action_ids = _keep_registered_ids(opponent_type.available_action_ids, opponent_actions, "Move", missing)
+		opponent_type.passive_effects = _keep_registered_ids(opponent_type.passive_effects, passive_effect_definitions, "passive", missing)
+		opponent_type.name_list_ids = _keep_registered_ids(opponent_type.name_list_ids, name_lists_by_id, "name list", missing)
+		if not missing.is_empty():
+			push_warning("Mod opponent type '%s' names content that isn't installed (%s) - left out." % [type_id, ", ".join(missing)])
+		if opponent_type.available_action_ids.is_empty():
+			push_warning("Mod opponent type '%s' has no installed Move left - skipped." % type_id)
+			opponent_types.erase(type_id)
+			removed_any = true
+	return removed_any
+
+### The ids that are keys of registry, in order; each other id is added to missing as "kind 'id'".
+func _keep_registered_ids(ids: Array[String], registry: Dictionary, kind: String, missing: Array[String]) -> Array[String]:
+	var kept: Array[String] = []
+	for content_id in ids:
+		if registry.has(content_id):
+			kept.append(content_id)
+		else:
+			missing.append("%s '%s'" % [kind, content_id])
+	return kept
+
+### === Mod-loaded name lists (JSON) ===
+### A mod list may not take the id of a game list: it would rename the game's own Partners.
+func _load_name_lists_from_mods() -> void:
+	for mod_file in _read_mod_json_files("name_lists"):
+		var name_list: NameList = NameList.from_json_dict(mod_file["data"])
+		if name_list.name_list_id == "":
+			push_error("Mod name list file has no name_list_id: %s" % mod_file["path"])
+			continue
+		var existing_list: NameList = name_lists_by_id.get(name_list.name_list_id, null)
+		if existing_list and not existing_list.is_modded:
+			push_warning("Mod '%s': name list '%s' has the id of one of the game's lists - skipped." % [mod_file["mod"], name_list.name_list_id])
+			continue
+		name_list.is_modded = true
+		name_lists_by_id[name_list.name_list_id] = name_list
+
+### === Mod-loaded opponent types (JSON) ===
+### A mod type may not take the id of a game type (it would change the game's own Partners). What it names that isn't
+### installed is left out once every mod type has loaded (_drop_missing_content_from_mod_opponent_types()).
+func _load_opponent_types_from_mods() -> void:
+	for mod_file in _read_mod_json_files("opponent_types"):
+		var opponent_type: OpponentType = OpponentType.from_json_dict(
+			mod_file["data"], MODS_ROOT.path_join(mod_file["mod"]).path_join("images"))
+		if opponent_type.opponent_type_id == "":
+			push_error("Mod opponent type file has no opponent_type_id: %s" % mod_file["path"])
+			continue
+		var existing_type: OpponentType = opponent_types.get(opponent_type.opponent_type_id, null)
+		if existing_type and not existing_type.is_modded:
+			push_warning("Mod '%s': opponent type '%s' has the id of one of the game's types - skipped." % [mod_file["mod"], opponent_type.opponent_type_id])
+			continue
+		opponent_type.is_modded = true
+		opponent_types[opponent_type.opponent_type_id] = opponent_type
+
+### Every JSON file in user://mods/<mod>/<subfolder>/ of the enabled mods, parsed: {"mod": mod folder name, "path", "data"}.
+### A file that doesn't hold a JSON object is reported and left out.
+func _read_mod_json_files(subfolder: String) -> Array[Dictionary]:
+	var mod_files: Array[Dictionary] = []
+	var dir: DirAccess = DirAccess.open(MODS_ROOT)
+	if not dir:
+		return mod_files
+	dir.list_dir_begin()
+	var folder_name: String = dir.get_next()
+	while folder_name != "":
+		if dir.current_is_dir() and not folder_name.begins_with(".") and SettingsManager.is_mod_enabled_on_disk(folder_name):
+			var content_folder: String = MODS_ROOT + "/" + folder_name + "/" + subfolder + "/"
+			if DirAccess.dir_exists_absolute(content_folder):
+				for json_path in Utils.get_files_in_folder(content_folder, "json"):
+					var file: FileAccess = FileAccess.open(json_path, FileAccess.READ)
+					if not file:
+						push_error("Could not open mod file: %s" % json_path)
+						continue
+					var parsed = JSON.parse_string(file.get_as_text())
+					if parsed == null or not (parsed is Dictionary):
+						push_error("Invalid JSON in mod file: %s" % json_path)
+						continue
+					mod_files.append({"mod": folder_name, "path": json_path, "data": parsed})
+		folder_name = dir.get_next()
+	dir.list_dir_end()
+	return mod_files
 
 ### === Mod-loaded map regions (JSON) ===
 ### A mod region may not take the id of a game region: it would recolour and rename the game's own map.
@@ -1010,6 +1193,10 @@ func _drop_missing_content_from_mod_encounter(encounter_def: EncounterDefinition
 		if not event_cards_by_id.has(card_id):
 			push_warning("%s: the starting hand card '%s' isn't installed - left out." % [label, card_id])
 			encounter_def.event_cards_starting_hand.erase(card_id)
+	for card_id in encounter_def.reward_cards_starting_hand.keys():
+		if not event_cards_by_id.has(card_id):
+			push_warning("%s: the starting hand Reward Card '%s' isn't installed - left out." % [label, card_id])
+			encounter_def.reward_cards_starting_hand.erase(card_id)
 	for passive_id in encounter_def.temporary_player_passives.duplicate():
 		if not passive_effect_definitions.has(passive_id):
 			push_warning("%s: the passive '%s' isn't installed - left out." % [label, passive_id])

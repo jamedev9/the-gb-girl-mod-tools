@@ -58,19 +58,24 @@ func _add_card_instances_to_opening_hand_(game_state: GameState) -> void:
 					permanence = CardInstance.CardPermanence.ONCE_PER_GAME
 				false:
 					permanence = CardInstance.CardPermanence.PERMANENT
-			
-			var new_card_instance: EventCardInstance = _create_new_event_card_instance(
-				game_state,	event_card_id,permanence)
-			new_card_instance.card_state = EventCardInstance.CardState.IN_HAND
-			_add_single_card_to_hand_(game_state,new_card_instance,true)
+			_add_card_instance_to_opening_hand_(game_state,event_card_id,permanence)
+	for event_card_id in game_state.reward_cards_starting_hand.keys():
+		for i in game_state.reward_cards_starting_hand[event_card_id]:
+			_add_card_instance_to_opening_hand_(game_state,event_card_id,CardInstance.CardPermanence.REWARD)
 
-			var fragment: LogFragment = LogFragment.make_new_log_fragment(
-			"player_drew_an_event_card_from_deck",
-			{"event_card_instance":new_card_instance,"card_type_id":new_card_instance.card_id},
-			[LogFragment.LogTags.EVENT_CARD_ADDED_TO_HAND],
-			null,true)
-			main_game.request_adding_fragment_to_log(fragment)
-			
+func _add_card_instance_to_opening_hand_(game_state: GameState,event_card_id: String,permanence: CardInstance.CardPermanence) -> void:
+	var new_card_instance: EventCardInstance = _create_new_event_card_instance(
+		game_state,	event_card_id,permanence)
+	new_card_instance.card_state = EventCardInstance.CardState.IN_HAND
+	_add_single_card_to_hand_(game_state,new_card_instance,true)
+
+	var fragment: LogFragment = LogFragment.make_new_log_fragment(
+	"player_drew_an_event_card_from_deck",
+	{"event_card_instance":new_card_instance,"card_type_id":new_card_instance.card_id},
+	[LogFragment.LogTags.EVENT_CARD_ADDED_TO_HAND],
+	null,true)
+	main_game.request_adding_fragment_to_log(fragment)
+
 
 func _shuffle_deck_(game_state:GameState) -> void:
 	game_state.event_cards_deck.shuffle()
@@ -127,13 +132,23 @@ func _shuffle_discard_into_bottom_of_deck_(game_state: GameState) -> void:
 	cards_to_add.shuffle()
 	for card_instance in cards_to_add:
 		if card_instance_is_permanent(card_instance):
-			_add_card_to_deck_(game_state,card_instance)
+			_add_card_to_deck_(game_state,_renew_card_instance_(game_state,card_instance))
 	#print("before empty discard:")
 	#debug_check_all_event_cards(game_state)
 	_empty_discard_pile_(game_state)
 	#print("after empty discard")
 	#debug_check_all_event_cards(game_state)
 	main_game.sound_manager.play_sound_effect(SoundManager.SoundEffects.CARD_SHUFFLE)
+
+### A card shuffled back into the deck comes back as a new instance (new entity_id). The animations of its last trip through
+### the game (resolving, going to the discard pile) can still be queued, and they find its card node by entity_id: if the same
+### instance were drawn again before they played, the new card node would take over that id and the old node would stay stuck
+### where it was resolving (seen when playing many draw cards quickly, or with Ctrl). The old instance is left to its node.
+func _renew_card_instance_(game_state: GameState, card_instance: EventCardInstance) -> EventCardInstance:
+	var renewed_instance: EventCardInstance = _create_new_event_card_instance(
+		game_state,card_instance.card_id,card_instance.permanence,card_instance.turns_until_discard)
+	game_state.retire_event_card_instance(card_instance)
+	return renewed_instance
 
 func _discard_n_cards_randomly_(game_state:GameState, effect_context: EffectContext) -> void:
 	var nr_of_cards: int = effect_context.discard_n_randomly

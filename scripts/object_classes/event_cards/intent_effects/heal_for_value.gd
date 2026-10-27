@@ -9,9 +9,18 @@ func create_intent_context(_game_state:GameState,_intent_context: EffectContext)
 	context.healing_amount = self.healing
 	return context
 
+func create_pleasure_preview_context(game_state: GameState, intent_context: EffectContext) -> EffectContext:
+	return create_intent_context(game_state, intent_context)
+
+func get_pleasure_kind() -> PleasureKind:
+	return PleasureKind.TAKES_AWAY
+
+func get_described_pleasure_amount() -> int:
+	return healing
+
 func get_description_segments() -> Array[DescriptionSegment]:
 	return DescriptionBuilder.parse_template(
-		tr("EFFECTINTENT_HEALFORVALUEEFFECT_TEMPLATE"), {"healing": str(healing)})
+		tr("EFFECTINTENT_HEALFORVALUEEFFECT_TEMPLATE"), {"healing": DescriptionSegment.live_pleasure_segment(str(healing), self)})
 
 ### "Lose X Pleasure to {target}" is backwards English - "lose X to Y" means the SPEAKER loses X
 ### and Y is the beneficiary/cause (like "I lost the game to my opponent"), not "Y loses X". Puts
@@ -33,7 +42,7 @@ func get_targeted_description_segments(
 	### "When") - capitalize it here since it's now sentence-initial.
 	var result: Array[DescriptionSegment] = DescriptionBuilder.capitalize_first_letter(target_segments)
 	result.append(DescriptionSegment.text_segment(" "))
-	result.append_array(DescriptionBuilder.parse_template(tr(key), {"healing": str(healing)}))
+	result.append_array(DescriptionBuilder.parse_template(tr(key), {"healing": DescriptionSegment.live_pleasure_segment(str(healing), self)}))
 	return result
 
 ### The target is already embedded above - never append a separate targeting phrase too.
@@ -48,4 +57,4 @@ func description_includes_targeting(
 ### since targeting_intent=PLAYER always means the player, not "whoever owns this").
 func get_self_targeted_description_segments() -> Array[DescriptionSegment]:
 	return DescriptionBuilder.parse_template(
-		tr("EFFECTINTENT_HEALFORVALUEEFFECT_SELF_TEMPLATE"), {"healing": str(healing)})
+		tr("EFFECTINTENT_HEALFORVALUEEFFECT_SELF_TEMPLATE"), {"healing": DescriptionSegment.live_pleasure_segment(str(healing), self)})

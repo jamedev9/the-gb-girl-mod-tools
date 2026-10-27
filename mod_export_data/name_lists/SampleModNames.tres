@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="NameList" format=3]
+
+[ext_resource type="Script" path="res://resources/opponents/names/name_list.gd" id="1_names"]
+
+[resource]
+script = ExtResource("1_names")
+name_list_id = "sample_mod_names"
+names = Array[String](["Modded Mike", "Modded Max", "Modded Moe"])

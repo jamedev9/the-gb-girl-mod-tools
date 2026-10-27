@@ -39,6 +39,9 @@ class_name EncounterDefinition
 	#"invert_outgoing_damage":1,
 	#"player_dubs_damage": 1,
 }
+### Like event_cards_starting_hand, but the cards are Reward Cards (REWARD permanence): they leave the game once played
+### instead of going to the discard pile.
+@export var reward_cards_starting_hand: Dictionary[String,int] = {}
 
 @export var forbid_all_summons: bool = false
 @export var forbidden_ally_summons: Array[String] = [] #ID of opponent type. Use for lore or challenge reasons
@@ -118,6 +121,7 @@ func to_json_dict() -> Dictionary:
 		"temporary_player_passives": temporary_player_passives.duplicate(),
 		"fixed_spawn_order": spawn_order,
 		"event_cards_starting_hand": event_cards_starting_hand.duplicate(),
+		"reward_cards_starting_hand": reward_cards_starting_hand.duplicate(),
 		"forbid_all_summons": forbid_all_summons,
 		"forbidden_ally_summons": forbidden_ally_summons.duplicate(),
 	}
@@ -153,6 +157,9 @@ static func from_json_dict(data: Dictionary, mod_root_path: String = "") -> Enco
 	var starting_hand: Dictionary = data.get("event_cards_starting_hand", {})
 	for card_id in starting_hand.keys():
 		encounter_def.event_cards_starting_hand[str(card_id)] = int(starting_hand[card_id])
+	var reward_starting_hand: Dictionary = data.get("reward_cards_starting_hand", {})
+	for card_id in reward_starting_hand.keys():
+		encounter_def.reward_cards_starting_hand[str(card_id)] = int(reward_starting_hand[card_id])
 
 	for condition_data in data.get("unlock_conditions", []):
 		var condition: UnlockCondition = ModdableResourceRegistry.instantiate(condition_data) as UnlockCondition

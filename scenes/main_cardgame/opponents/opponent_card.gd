@@ -82,6 +82,12 @@ func _refresh_text() -> void:
 
 
 func _process(_delta: float) -> void:
+	### This script is @tool, but everything below is for a running game: in the editor the pleasure bar is a placeholder
+	### (its script isn't @tool), so calling it errors every frame.
+	if Engine.is_editor_hint():
+		return
+	_update_upcoming_damage_label()
+	_update_pleasure_preview()
 	if not _is_mouse_inside:
 		return
 	var mouse_pos: Vector2 = get_local_mouse_position()
@@ -411,21 +417,57 @@ func _show_upcoming_action() -> void:
 	if not _real_upcoming_action:
 		return
 	var shown_action: OpponentActionDefinition = _real_upcoming_action
-	var action_damage: int = EffectAndTargetIntent.sum_displayed_damage(_real_upcoming_action.effect_intents)
 	if _player_cant_see_upcoming_action:
 		shown_action = UnknownOpponentAction.get_shared()
-		action_damage = 0
 	action_mini_display.display_action(shown_action)
 	#print("Updating displayed action")
-	_set_upcoming_damage_label_text(action_damage)
+	_update_upcoming_damage_label()
 
-func _set_upcoming_damage_label_text(action_damage: int) -> void:
+### Live: the Pleasure the shown Move gives with every status and passive that changes it (PleasurePreview), polled every frame
+### like the Action cards' numbers and colored when the modifiers change it. Which Move is shown still only changes when the game
+### announces it (update_displayed_action()). The plain number when there is nothing to preview (no encounter, a tooltip card, a
+### Partner the game state no longer has while its card is still shown).
+func _update_upcoming_damage_label() -> void:
+	if not _real_upcoming_action:
+		return
+	if _player_cant_see_upcoming_action:
+		_set_upcoming_damage_label_text(0)
+		return
+	var preview: PleasurePreview = PleasurePreview.for_main_game(main_game)
+	if not preview.can_preview() or not main_game.game_state.get_opponent_instance(opponent_id):
+		_set_upcoming_damage_label_text(EffectAndTargetIntent.sum_displayed_damage(_real_upcoming_action.effect_intents))
+		return
+	var hits: Array[PleasurePreviewHit] = PleasurePreview.get_displayed_hits(
+		preview.preview_opponent_move(opponent_id, _real_upcoming_action, false), true)
+	_set_upcoming_damage_label_text(PleasurePreview.sum_amounts(hits), PleasurePreview.get_live_number_color(hits))
+
+### The upcoming Move while the player hovers it (this card tracks its hovered child itself, see _process()), null otherwise and
+### while the player can't see it (blinded).
+func get_hovered_upcoming_move() -> OpponentActionDefinition:
+	if _player_cant_see_upcoming_action:
+		return null
+	if _currently_hovered_child is not OpponentActionMiniDisplay:
+		return null
+	return _real_upcoming_action
+
+### "+X" and a shaded region on this Partner's bar: what the Actions on the Partners and whatever is under the mouse will give them
+### (PleasureBarPreviews).
+func _update_pleasure_preview() -> void:
+	if not is_instance_valid(simple_pleasure_bar):
+		return
+	var change: int = PleasureBarPreviews.get_change_for_opponent(main_game, opponent_id)
+	simple_pleasure_bar.set_pleasure_preview(change, PleasureBarPreviews.get_color_for_change(change, false))
+
+func _set_upcoming_damage_label_text(action_damage: int, color: Color = Color.WHITE) -> void:
 	#print("Setting damage label to: %s"%action_damage)
 	if action_damage == 0:
 		opponent_damage_label.visible = false
 	else:
 		opponent_damage_label.visible = true
-		opponent_damage_label.text = str(action_damage)
+		var damage_text: String = str(action_damage)
+		if opponent_damage_label.text != damage_text: ### A RichTextLabel re-parses its text on every assignment.
+			opponent_damage_label.text = damage_text
+		opponent_damage_label.modulate = color
 
 func update_displayed_values_when_taking_damage(current_pleasure: int) -> void: #Called by animation handler for damage
 	simple_pleasure_bar.set_current_pleasure(current_pleasure)
@@ -572,6 +614,8 @@ func _get_drag_data(_at_position: Vector2) -> Variant:
 	preview_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	var preview_card := action_card.duplicate(Control.DUPLICATE_USE_INSTANTIATION)
+	### So its energy cost and Pleasure follow the Partner under the cursor, like a card dragged from the hand.
+	(preview_card as ActionCard)._is_drag_preview_clone = true
 	preview_card.visible = true
 	preview_card.modulate = Color.WHITE
 	preview_card.scale = action_card.scale

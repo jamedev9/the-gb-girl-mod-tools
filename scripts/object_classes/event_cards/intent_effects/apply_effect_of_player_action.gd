@@ -41,3 +41,6 @@ func description_includes_targeting(
 		if action_rule.action_ids.size() == 1 and action_rule.action_ids[0] == player_action_id:
 			return false
 	return true
+
+func get_referenced_content_ids() -> Dictionary:
+	return {"actions": [player_action_id]}

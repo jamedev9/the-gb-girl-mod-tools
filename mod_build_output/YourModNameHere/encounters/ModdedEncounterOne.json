@@ -17,6 +17,7 @@
 	"opponents_in_encounter_reserves": {
 		"beach_boy": 2
 	},
+	"reward_cards_starting_hand": {},
 	"rewards_granted_by_clearing": [],
 	"temporary_player_passives": [],
 	"unlock_conditions": []

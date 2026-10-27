@@ -20,3 +20,6 @@ func get_description_segments() -> Array[DescriptionSegment]:
 		names.append(reward_def.get_reward_name() if reward_def else "?")
 	return DescriptionBuilder.parse_template(
 		tr("EFFECTINTENT_GIVEPLAYERUNLOCKREWARDS_TEMPLATE"), {"names": DescriptionBuilder.join_with_and(names)})
+
+func get_referenced_content_ids() -> Dictionary:
+	return {"rewards": reward_ids.duplicate()}

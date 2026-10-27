@@ -1,0 +1,33 @@
+{
+	"_class": "StatusEffectDefinition",
+	"has_secret_description": false,
+	"max_stacks": 0,
+	"stackable": true,
+	"status_category": "DEBUFF",
+	"status_description": "Gives 5 {PLEASURE} per stack each turn.",
+	"status_effect_components": [],
+	"status_id": "sample_mod_status",
+	"status_name": "Sample Mod Status",
+	"status_picture": "sample_status.png",
+	"status_tags": [],
+	"ticking_effect_components": [
+		{
+			"_class": "DamageOverTime",
+			"effect_intents": [
+				{
+					"_class": "EffectAndTargetIntent",
+					"effect_intent": {
+						"_class": "DealDamageEffect",
+						"damage": 5,
+						"intent_effect_id": "",
+						"scale_with_stacks": true
+					},
+					"targeting_intent": 5,
+					"targeting_rules": []
+				}
+			],
+			"tick_component_id": "sample_mod_status_tick"
+		}
+	],
+	"triggered_effect_components": []
+}

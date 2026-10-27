@@ -1,4 +1,5 @@
 res://tools/modding/mod_exporter/mod_exporter.gd
-res://mod_export_data/event_cards/TestComboCards.tres
-res://mod_export_data/event_cards/TestCard_GivePleasure.tres
-res://mod_export_data/rewards/GivePlayer_TestCardPleaseHim.tres
+res://mod_export_data/opponent_actions/SampleModMove.tres
+res://mod_export_data/opponent_types/SampleModPartner.tres
+res://mod_export_data/encounters/ModdedEncounterOne.tres
+res://mod_export_data/maps/ModTestMap.tres

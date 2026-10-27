@@ -180,6 +180,10 @@ const _REGISTERED_SCRIPTS: Array[Script] = [
 	preload("res://scripts/object_classes/meta_game_objects/reward_definition/reward_unlock_orgasm_card.gd"),
 	preload("res://scripts/object_classes/meta_game_objects/reward_definition/reward_unlock_player_actions.gd"),
 	preload("res://scripts/object_classes/meta_game_objects/reward_definition/reward_unlock_reward_card_for_action.gd"),
+	# opponent_action_strategy (embedded in OpponentType)
+	preload("res://scripts/object_classes/opponent_action_strategy/stategy_select_random_action.gd"),
+	preload("res://scripts/object_classes/opponent_action_strategy/stategy_sequential_action_progression.gd"),
+	preload("res://scripts/object_classes/opponent_action_strategy/strategy_first_linear_then_random.gd"),
 ]
 
 static var _by_class_name: Dictionary = {}

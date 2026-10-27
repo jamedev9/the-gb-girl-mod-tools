@@ -36,26 +36,40 @@ static func parse_template(
 			segments.append(DescriptionSegment.text_segment(template.substr(last_end, token_start - last_end)))
 		var token_name: String = match_result.get_string(1)
 		var token_term_id: String = match_result.get_string(2)
-		if not token_term_id.is_empty():
+		var full_token: String = token_name + ":" + token_term_id
+		### A substitution can stand for a whole {KIND:id} token too (an event card's {VALUE:pleasure_given}, see
+		### EventCardDefinition.get_card_description_segments()); it wins over the term lookup.
+		if not token_term_id.is_empty() and substitutions.has(full_token):
+			_append_substitution(segments, substitutions[full_token])
+		elif not token_term_id.is_empty():
 			segments.append(DescriptionTerms.from_token(token_name, token_term_id, card_permanence_hints))
 		elif AutoloadDatabase.get_gameplay_keyword(token_name):
 			segments.append(DescriptionSegment.keyword_segment(token_name))
 		elif substitutions.has(token_name):
-			var value = substitutions[token_name]
-			if value is DescriptionSegment:
-				segments.append(value)
-			elif value is Array:
-				for list_item in value:
-					if list_item is DescriptionSegment:
-						segments.append(list_item)
-			else:
-				segments.append(DescriptionSegment.text_segment(str(value)))
+			_append_substitution(segments, substitutions[token_name])
 		else:
 			push_warning("DescriptionBuilder: unresolved placeholder '{%s}' in template '%s'" % [token_name, template])
 			segments.append(DescriptionSegment.text_segment("{%s}" % token_name))
 		last_end = token_end
 	if last_end < template.length():
 		segments.append(DescriptionSegment.text_segment(template.substr(last_end)))
+	return segments
+
+### A substitution value is a segment, a list of segments, or anything else shown as text.
+static func _append_substitution(segments: Array[DescriptionSegment], value: Variant) -> void:
+	if value is DescriptionSegment:
+		segments.append(value)
+	elif value is Array:
+		for list_item in value:
+			if list_item is DescriptionSegment:
+				segments.append(list_item)
+	else:
+		segments.append(DescriptionSegment.text_segment(str(value)))
+
+### segments (a per-unit Pleasure rule: "Give 5 Pleasure per Energy") followed by " (currently N)", the total effect_intent comes to
+### right now, which only a tooltip that knows the situation fills in (DescriptionSegment.live_pleasure_total_segment()).
+static func followed_by_live_pleasure_total(effect_intent: EffectIntent, segments: Array[DescriptionSegment]) -> Array[DescriptionSegment]:
+	segments.append(DescriptionSegment.live_pleasure_total_segment(effect_intent))
 	return segments
 
 ### "per stack" - tacked on to a description whose numbers grow with the stack count of the status that runs it

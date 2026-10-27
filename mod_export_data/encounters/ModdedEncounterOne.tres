@@ -13,7 +13,7 @@ encounter_description = "This is a test encounter."
 encounter_picture = ExtResource("1_sivxn")
 music_track_id = "blow_him_hard"
 opponents_in_encounter_reserves = Dictionary[String, int]({
-"beach_boy": 2
+"sample_mod_partner": 2
 })
 min_simultaneous_opponents = 2
 metadata/_custom_type_script = "uid://3ptqijs4tuix"

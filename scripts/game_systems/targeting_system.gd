@@ -39,10 +39,13 @@ static func get_targeting_mode_description_segments(mode: TargetingMode) -> Arra
 	return []
 
 
+### skip_selector_rules: only the filter rules run, so the result is every candidate a selector rule would pick from, and
+### nothing is picked at random (the live Pleasure previews, see PleasurePreview._get_preview_targets()).
 static func get_targets_matching_rules(
 	game_state: GameState,
 	rules_array: Array[TargetingRule],
-	source: TargetEntity = null) -> Array[TargetEntity]:
+	source: TargetEntity = null,
+	skip_selector_rules: bool = false) -> Array[TargetEntity]:
 
 	#var rule_names: Array = rules_array.map(func(r): return r.get_script().get_global_name())
 	#print("Rules passed in (%d): %s" % [rules_array.size(), rule_names])
@@ -62,6 +65,8 @@ static func get_targets_matching_rules(
 	
 	valid_opponent_ids = _remove_duplicate_opponent_ids(valid_opponent_ids)	
 
+	if skip_selector_rules:
+		selector_rules.clear()
 	for rule in selector_rules:
 		valid_opponent_ids = _apply_selector_rule(rule, valid_opponent_ids, game_state, source)
 	#print("After selector rules: %s" % [valid_opponent_ids])
@@ -79,6 +84,14 @@ static func _remove_duplicate_opponent_ids(opponent_ids: Array) -> Array:
 		if opponent_id not in unique_ids:
 			unique_ids.append(opponent_id)
 	return unique_ids
+
+### True when the rules pick from their candidates at random (a selector rule; OpponentWithMostHealthRemaining only picks at
+### random between ties, but which Partner it picks is still not known in advance).
+static func has_selector_rule(rules_array: Array[TargetingRule]) -> bool:
+	for rule in rules_array:
+		if rule and _is_selector_rule(rule):
+			return true
+	return false
 
 static func _is_selector_rule(rule: TargetingRule) -> bool:
 	match rule.get_script():

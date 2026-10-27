@@ -119,3 +119,10 @@ func _insert_card_flow_into_context_(context: EffectContext) -> void:
 		#context.add_cards_to_deck = add_cards_to_deck
 	#else:
 		#context.add_cards_to_deck.append_array(add_cards_to_deck)
+
+func get_referenced_content_ids() -> Dictionary:
+	var card_ids: Array = []
+	for card_intent in add_cards_to_hand + add_cards_to_deck:
+		if card_intent and card_intent.event_card_id not in card_ids:
+			card_ids.append(card_intent.event_card_id)
+	return {"cards": card_ids} if not card_ids.is_empty() else {}

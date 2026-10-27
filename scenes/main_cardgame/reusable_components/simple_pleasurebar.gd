@@ -29,6 +29,14 @@ class_name SimplePleasureBar
 
 @export var drain_bar_duration: float = 3
 
+### The upcoming change to this bar's Pleasure: a "+15" / "-10" label and a shaded region from the fill's edge over the stretch the
+### change covers (see set_pleasure_preview()). Their looks are set in the scene; both are tinted with the color the owner passes.
+### The region pulses with the Edging pulse shader (a ShaderMaterial on the node in the scene; its pulse settings are set there).
+@export var preview_region: Control
+@export var preview_label: Label
+### Space between the end of the value text ("45 / 100") and the "+X" label, which follows the text as its width changes.
+@export var preview_label_gap: float = 6.0
+
 const HIDDEN_TEXT_KEY: String = "UI_OPPONENT_INFO_HIDDEN"
 const EDGING_PULSE_SHADER_PATH: String = "res://resources/shaders/pleasure_bar_pulse.gdshader"
 
@@ -46,6 +54,7 @@ func set_pleasure_hidden(hidden: bool) -> void:
 	_update_pleasure_label_text(current_pleasure)
 	_update_edging_pulse()
 	_update_edging_marker(false)
+	_update_pleasure_preview()
 
 func _ready() -> void:
 	### The marker is placed from the bar's pixel width, so it follows whenever the bar is resized.
@@ -157,6 +166,63 @@ func _ensure_edging_pulse_material() -> bool:
 	_edging_pulse_material.set_shader_parameter("pulse_min",edging_pulse_min_intensity)
 	pleasure_fill.material = _edging_pulse_material
 	return true
+#endregion
+
+#region Pleasure preview
+var _preview_change: int = 0
+var _preview_color: Color = Color.WHITE
+
+### change: whole Pleasure (negative = taken away); 0 hides the preview. color: the tint of the label and the region. Set every
+### frame by the bar's owner (OpponentCard, PlayerCombatStatDisplay) from PleasureBarPreviews, so the region also follows the fill
+### while it animates. Hidden while the player can't see the bar (blinded).
+func set_pleasure_preview(change: int, color: Color) -> void:
+	_preview_change = change
+	_preview_color = color
+	_update_pleasure_preview()
+
+func _update_pleasure_preview() -> void:
+	if not is_instance_valid(preview_region) or not is_instance_valid(preview_label):
+		return
+	var preview_is_shown: bool = _preview_change != 0 and max_pleasure > 0 and not pleasure_hidden
+	preview_label.visible = preview_is_shown
+	if not preview_is_shown:
+		preview_region.visible = false
+		return
+	var label_text: String = ("+%d" % _preview_change) if _preview_change > 0 else str(_preview_change)
+	if preview_label.text != label_text:
+		preview_label.text = label_text
+	preview_label.modulate = _preview_color
+	preview_region.modulate = _preview_color
+	_place_preview_label()
+	_place_preview_region()
+
+### Right after the value text. The value label is centered and its text is centered in it, so the text ends half its drawn width
+### to the right of the label's middle. Only the x is set here; the height and look come from the scene.
+func _place_preview_label() -> void:
+	var text_width: float = pleasure_value_label.get_content_width()
+	var text_end: float = pleasure_value_label.position.x + 0.5 * (pleasure_value_label.size.x + text_width)
+	preview_label.position.x = text_end + preview_label_gap
+
+### From the edge of the fill as it is drawn right now (it animates behind the game state), forwards for a gain, backwards over
+### the fill for a loss, on the same scale as the fill and kept inside the bar. Hidden when nothing of it fits (a bar already full).
+func _place_preview_region() -> void:
+	var bar_style: StyleBox = full_bar_container.get_theme_stylebox("panel")
+	var bar_start: float = bar_style.get_margin(SIDE_LEFT)
+	var bar_end: float = full_bar_container.size.x - bar_style.get_margin(SIDE_RIGHT)
+	var fill_end: float = pleasure_indicator_panel.position.x + pleasure_indicator_panel.size.x
+	var change_length: float = get_max_pleasure_bar_length() * absi(_preview_change) / max_pleasure
+	var region_start: float = fill_end
+	var region_end: float = fill_end + change_length
+	if _preview_change < 0:
+		region_start = fill_end - change_length
+		region_end = fill_end
+	region_start = clampf(region_start, bar_start, bar_end)
+	region_end = clampf(region_end, bar_start, bar_end)
+	preview_region.visible = region_end - region_start >= 1.0
+	if not preview_region.visible:
+		return
+	preview_region.position = full_bar_container.position + Vector2(region_start, pleasure_indicator_panel.position.y)
+	preview_region.size = Vector2(region_end - region_start, pleasure_indicator_panel.size.y)
 #endregion
 
 func set_current_pleasure(_current_pleasure: int) -> void:

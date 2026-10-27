@@ -74,9 +74,9 @@ static func build_opponent_profile(
 	var unmodelled: Array[String] = []
 	var notes: Array[String] = []
 	var moves: Array[OpponentActionDefinition] = _get_usable_moves(opponent_type, usable_action_ids)
-	if moves.is_empty() and not opponent_type.available_actions.is_empty():
+	if moves.is_empty() and not opponent_type.available_action_ids.is_empty():
 		notes.append("no Move is usable with the character's actions - counting all of them")
-		moves = opponent_type.available_actions.duplicate()
+		moves = opponent_type.get_available_actions()
 
 	var move_threat_sum: float = 0.0
 	for move in moves:
@@ -93,14 +93,14 @@ static func build_opponent_profile(
 		"effective_hp": maxf(effective_hp, 1.0),
 		"threat": threat,
 		"usable_moves": moves.size(),
-		"total_moves": opponent_type.available_actions.size(),
+		"total_moves": opponent_type.get_available_actions().size(),
 		"notes": notes,
 		"unmodelled": unmodelled,
 	}
 
 static func _get_usable_moves(opponent_type: OpponentType, usable_action_ids: Array) -> Array[OpponentActionDefinition]:
 	var usable: Array[OpponentActionDefinition] = []
-	for move in opponent_type.available_actions:
+	for move in opponent_type.get_available_actions():
 		if move == null:
 			continue
 		var is_usable: bool = true

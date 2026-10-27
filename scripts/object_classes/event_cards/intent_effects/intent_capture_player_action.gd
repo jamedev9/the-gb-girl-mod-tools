@@ -14,3 +14,6 @@ func get_description_segments() -> Array[DescriptionSegment]:
 	var action_name: String = action_def.get_action_name() if action_def else "?"
 	return DescriptionBuilder.parse_template(
 		tr("EFFECTINTENT_CAPTUREPLAYERACTION_TEMPLATE"), {"action_name": action_name})
+
+func get_referenced_content_ids() -> Dictionary:
+	return {"actions": [player_action_id]}

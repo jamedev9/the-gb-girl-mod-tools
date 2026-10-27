@@ -21,3 +21,6 @@ func get_description_segments() -> Array[DescriptionSegment]:
 		names.append(passive_def.get_effect_name() if passive_def else "?")
 	return DescriptionBuilder.parse_template(
 		tr("EFFECTINTENT_GIVEPASSIVESTOPLAYER_TEMPLATE"), {"names": DescriptionBuilder.join_with_and(names)})
+
+func get_referenced_content_ids() -> Dictionary:
+	return {"passives": passive_ids.duplicate()}

@@ -54,3 +54,13 @@ func get_description_segments() -> Array[DescriptionSegment]:
 		"EFFECTINTENT_ADDCARDSFROMLISTOFCARDSTOHAND_TEMPLATE_SINGULAR",
 		"EFFECTINTENT_ADDCARDSFROMLISTOFCARDSTOHAND_TEMPLATE",
 		{"count": str(number_of_cards), "card_names": DescriptionBuilder.join_with_and(names, true)})
+
+func get_referenced_content_ids() -> Dictionary:
+	var referenced: Dictionary = super.get_referenced_content_ids()
+	var card_ids: Array = referenced.get("cards", [])
+	for card_intent in cards_and_weights.keys():
+		if card_intent and card_intent.event_card_id not in card_ids:
+			card_ids.append(card_intent.event_card_id)
+	if not card_ids.is_empty():
+		referenced["cards"] = card_ids
+	return referenced

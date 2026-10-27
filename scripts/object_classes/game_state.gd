@@ -455,6 +455,8 @@ func record_active_player_statuses_at_end_of_game() -> void:
 #region Event cards:
 var opening_hand_size: int = 5
 var event_cards_starting_hand: Dictionary #= {"handcuffs":3}
+### Dealt into the opening hand as Reward Cards (EncounterDefinition.reward_cards_starting_hand).
+var reward_cards_starting_hand: Dictionary = {}
 
 var event_cards_deck: Array[EventCardInstance] = []
 var event_cards_hand: Array[EventCardInstance] = []
@@ -546,6 +548,12 @@ var _all_event_card_instances: Dictionary[String, EventCardInstance] = {} # enti
 
 func register_event_card_instance(card_instance: EventCardInstance) -> void:
 	_all_event_card_instances[card_instance.entity_id] = card_instance
+
+### The instance was replaced by a new one (a card shuffled back into the deck, EventCardManager._renew_card_instance_()),
+### so it is no longer expected in any pile.
+func retire_event_card_instance(card_instance: EventCardInstance) -> void:
+	_all_event_card_instances.erase(card_instance.entity_id)
+	_already_reported_missing.erase(card_instance.entity_id)
 
 func get_all_registered_event_card_instances() -> Array[EventCardInstance]:
 	return _all_event_card_instances.values()
