@@ -33,6 +33,7 @@ Names and descriptions in your mod are shown in the game exactly as you write th
 
 ## Video clips
 Move your video files to `mod_export_data/videos`. In the same folder, create a VideoClip resource for each clip. Add the correct tags to the resource and drag the video clip onto it. The name of the resource itself is not important.
+Accepted file formats: *.mp4, *.m4v, *.mov, *.mkv, *.webm, *.avi, *.ogv
 
 ## Custom character definitions
 In `mod_export_data/characters`, create a new CharacterDefinition resource. You can place a custom portrait in `mod_export_data/images`, then link the image in the CharacterDefinition resource.
