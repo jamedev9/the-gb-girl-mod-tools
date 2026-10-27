@@ -139,6 +139,9 @@ Put an encounter in a region by setting its **Map Region Id** (see "Encounters")
   * **Unlock Conditions**: extra requirements on top of the lines (for example "win by turn N"). A "clear encounters in region" condition here counts only the encounters on your map.
 * Progress is shared with the rest of the save: an encounter the player has already cleared on another map counts as cleared on yours.
 
+### Saving
+Press **Save** in the tab, or save the project (Ctrl+S).
+
 ## Rewards
 Go to `mod_export_data/rewards` and create a reward resource for each reward. Pick the reward type that does what you want (for example Reward_GivePlayerEventCards, Reward_GivePlayerPassive, Reward_UnlockPlayerActions, Reward_IncreasePlayerStats).
 
@@ -150,9 +153,6 @@ Fill in:
 * The fields of the reward type: what it gives, by ID (card, passive, Action or character IDs).
 
 A reward is skipped if it gives content that isn't installed for the player (for example a card from another mod they removed). An encounter can hand out your reward directly through its **Rewards Granted By Clearing**.
-
-### Saving
-Press **Save** in the tab, or save the project (Ctrl+S).
 
 ## Moves
 Moves are what Partners do on their turn. Go to `mod_export_data/opponent_actions` and create a new OpponentActionDefinition resource for each Move.
