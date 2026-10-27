@@ -12,6 +12,9 @@ class_name OpponentType
 @export_multiline var visual_description: String = ""
 
 @export var picture: Texture2D
+### The picture list (PictureList.id) the prototype card's idle picture comes from (get_cock_picture()). Empty or not
+### registered = "default_picture". The rework card doesn't show it.
+@export var idle_picture_list_id: String = ""
 @export var appearance_variations: Array[OpponentAppearance] = []
 @export var video_particpant_tags: Array[VideoClip.ParticipantTags]
 ### Name lists only this type uses, embedded in its file (no id). Lists shared with other types: name_list_ids.
@@ -36,6 +39,7 @@ class_name OpponentType
 func _validate_property(property: Dictionary) -> void:
 	ContentIdSuggestions.apply_to_array_property(property, "available_action_ids", "OpponentActionDefinition", "opponent_action_id")
 	ContentIdSuggestions.apply_to_array_property(property, "name_list_ids", "NameList", "name_list_id")
+	ContentIdSuggestions.apply_to_property(property, "idle_picture_list_id", "PictureList", "id")
 
 ### The registered Moves of available_action_ids, in order. An id that isn't registered (its mod is gone) is left out.
 func get_available_actions() -> Array[OpponentActionDefinition]:
@@ -81,27 +85,16 @@ func get_random_appearance() -> OpponentAppearance:
 		return null
 	return appearance_variations.pick_random()
 
+const DEFAULT_IDLE_PICTURE_LIST_ID: String = "default_picture"
+
+### A random picture of the idle_picture_list_id list (the "default_picture" list when it is empty or not registered).
 func get_cock_picture() -> Texture2D:
-	var list_id: String = ""
-	if VideoClip.ParticipantTags.BBC in video_particpant_tags:
-		list_id = "bbc"
-	if VideoClip.ParticipantTags.WHITE_MAN in video_particpant_tags:
-		list_id = "white_big"
-	if VideoClip.ParticipantTags.JAPANESE_MAN in video_particpant_tags:
-		list_id = "white_big" ### TODO: Find pics for this
-	if opponent_type_id == "cuck_bf_caged":
-		list_id = "cuck_cage"
-	if opponent_type_id == "cuck_bf":
-		list_id = "white_small"
-	if opponent_type_id == "secret_society_master_of_ceremonies":
-		list_id = "master_of_ceremonies"
-	if opponent_type_id == "female_flight_attendant":
-		list_id = "flight_attendant_clothes"
-	
-	if list_id == "":
-		list_id = "default_picture"
-		
-	return AutoloadDatabase.get_picture_list(list_id).get_random_picture()	
+	var picture_list: PictureList = AutoloadDatabase.picture_lists.get(idle_picture_list_id, null)
+	if picture_list == null:
+		picture_list = AutoloadDatabase.picture_lists.get(DEFAULT_IDLE_PICTURE_LIST_ID, null)
+	if picture_list == null:
+		return null
+	return picture_list.get_random_picture()
 
 func get_opponent_color() -> Color:
 	return card_color
@@ -133,6 +126,7 @@ func to_json_dict() -> Dictionary:
 		"opponent_type_name": opponent_type_name,
 		"summonable_ally": summonable_ally,
 		"picture": ModExportable.resolve_to_res_path(picture.resource_path, resource_path) if picture else "",
+		"idle_picture_list_id": idle_picture_list_id,
 		"video_participant_tags": tag_names,
 		"names": own_names,
 		"name_list_ids": Array(name_list_ids),
@@ -151,6 +145,7 @@ static func from_json_dict(data: Dictionary, mod_folder_path: String = "") -> Op
 	opponent_type.opponent_type_id = str(data.get("opponent_type_id", ""))
 	opponent_type.opponent_type_name = str(data.get("opponent_type_name", ""))
 	opponent_type.summonable_ally = bool(data.get("summonable_ally", false))
+	opponent_type.idle_picture_list_id = str(data.get("idle_picture_list_id", ""))
 	opponent_type.max_damage = int(data.get("max_damage", 0))
 	opponent_type.orgasms_before_defeat = int(data.get("orgasms_before_defeat", 1))
 	opponent_type.card_color = Color.from_string(str(data.get("card_color", "")), opponent_type.card_color)

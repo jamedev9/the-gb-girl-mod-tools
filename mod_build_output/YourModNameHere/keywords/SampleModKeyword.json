@@ -1,0 +1,8 @@
+{
+	"_class": "GameplayKeyword",
+	"color": "ff9933ff",
+	"description": "A keyword from a mod. It can link {PLEASURE} too.",
+	"display_name": "Sample Word",
+	"icon": "sample_keyword.png",
+	"keyword_id": "SAMPLE_WORD"
+}

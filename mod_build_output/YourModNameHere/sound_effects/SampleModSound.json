@@ -1,0 +1,9 @@
+{
+	"_class": "AudioStreamsForSoundEffect",
+	"audio_streams": [
+		{
+			"file": "sample_shuffle.wav"
+		}
+	],
+	"sound_effect_id": "sample_mod_sound"
+}

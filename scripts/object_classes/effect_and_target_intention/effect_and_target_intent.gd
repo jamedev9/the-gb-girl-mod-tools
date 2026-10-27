@@ -331,3 +331,19 @@ static func _strip_trailing_period(segments: Array[DescriptionSegment]) -> Array
 	if not result.is_empty() and result[-1].type == DescriptionSegment.Type.TEXT and result[-1].text == ".":
 		result.remove_at(result.size() - 1)
 	return result
+
+### The registered content a list of intents hands out or acts with, merged (kind -> Array of ids, no repeats). See
+### EffectIntent.get_referenced_content_ids(); used to skip mod content that names something not installed.
+static func collect_referenced_content_ids(intents: Array) -> Dictionary:
+	var referenced: Dictionary = {}
+	for intent in intents:
+		if intent == null or intent.effect_intent == null:
+			continue
+		var intent_ids: Dictionary = intent.effect_intent.get_referenced_content_ids()
+		for kind in intent_ids.keys():
+			var ids: Array = referenced.get(kind, [])
+			for content_id in intent_ids[kind]:
+				if content_id not in ids:
+					ids.append(content_id)
+			referenced[kind] = ids
+	return referenced

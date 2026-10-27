@@ -1,6 +1,9 @@
-extends Resource
+@tool
+extends ModExportable
 class_name ActionProgressionDefinition
 
+### Registered under each of its Actions (AutoloadDatabase.action_progress_definitions, action id -> this), so an Action
+### has at most one progression.
 @export var action_ids: Array[String] ### can be just one or multiple (for HJ's
 
 ### int: number required, Reward ID: What is awarded when the number is reached
@@ -8,6 +11,13 @@ class_name ActionProgressionDefinition
 
 ### Challenges that award stuff related to this action. String: Id of reward.
 @export var action_related_rewards: Array[String]
+
+### True for a progression loaded from a mod. @export_storage so duplicate() keeps it; never written to JSON.
+@export_storage var is_modded: bool = false
+
+func _validate_property(property: Dictionary) -> void:
+	ContentIdSuggestions.apply_to_array_property(property, "action_ids", "PlayerAction", "action_id")
+	ContentIdSuggestions.apply_to_array_property(property, "action_related_rewards", "RewardDefinition", "reward_id")
 
 func get_rewards_that_should_be_unlocked(save_game_state: SaveGameState) -> Array[String]:
 	var rewards_ids: Array[String]
@@ -96,3 +106,25 @@ func is_reward_available_to_show(reward_id: String,save_game_state: SaveGameStat
 	if not player_has_track_action:
 		return false
 	return get_next_reward_id(save_game_state) == reward_id
+
+#region Mod export
+func get_mod_export_subfolder() -> String:
+	return "action_progressions"
+
+### Generic JSON (plain ids and counts), without the is_modded flag.
+func _get_fields_excluded_from_generic_json() -> Array[String]:
+	return ["is_modded"]
+
+### Read by hand: JSON numbers come back as floats, and the generic reader passes a dictionary's values on untyped, which the
+### int-typed rewards_per_guy_defeated would not take.
+static func from_json_dict(data: Dictionary) -> ActionProgressionDefinition:
+	var progression: ActionProgressionDefinition = ActionProgressionDefinition.new()
+	for action_id in data.get("action_ids", []):
+		progression.action_ids.append(str(action_id))
+	var rewards: Dictionary = data.get("rewards_per_guy_defeated", {})
+	for reward_id in rewards.keys():
+		progression.rewards_per_guy_defeated[str(reward_id)] = int(rewards[reward_id])
+	for reward_id in data.get("action_related_rewards", []):
+		progression.action_related_rewards.append(str(reward_id))
+	return progression
+#endregion

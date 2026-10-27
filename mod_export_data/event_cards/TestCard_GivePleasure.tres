@@ -27,4 +27,5 @@ card_picture = ExtResource("1_olcbq")
 category = 3
 energy_cost = 1
 effect_intents = Array[ExtResource("1_eitnl")]([SubResource("Resource_eitnl")])
+sound_effect_ids = Array[String](["sample_mod_sound"])
 metadata/_custom_type_script = "uid://dc0eu5yv1xe37"

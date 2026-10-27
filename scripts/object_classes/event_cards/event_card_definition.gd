@@ -37,7 +37,12 @@ enum CardCategory {
 @export var video_action_tags: Array[VideoClip.ActionTags] = []
 @export var video_participant_tags: Array[VideoClip.ParticipantTags] = []
 
-@export var sound_effects: Array[AudioStreamsForSoundEffect] # Multiple effects are played at the same time
+### Sound effects played when the card resolves, by AudioStreamsForSoundEffect.sound_effect_id (all at the same time; one
+### random stream of each). Ids with a dropdown of the sound effects found in the project, like the rest of the game names content.
+@export var sound_effect_ids: Array[String] = []
+
+func _validate_property(property: Dictionary) -> void:
+	ContentIdSuggestions.apply_to_array_property(property, "sound_effect_ids", "AudioStreamsForSoundEffect", "sound_effect_id")
 
 const MAX_ENERGY_COST: int = 100
 #@export var reward_cards_from_defeat: Array[String] = []
@@ -163,10 +168,13 @@ func card_requires_targeted_opponent() -> bool:
 func is_immune_to_random_discard() -> bool:
 	return category == CardCategory.COMBO or category == CardCategory.ORGASM_REWARD
 
+### A sound effect that isn't registered (its mod is gone) is left out.
 func get_sound_effects_to_play_on_resoluion() -> Array[AudioStream]:
 	var streams: Array[AudioStream] = []
-	for list in sound_effects:
-		streams.append(list.get_random_stream())
+	for sound_effect_id in sound_effect_ids:
+		var sound_effect: AudioStreamsForSoundEffect = AutoloadDatabase.sound_effects_by_id.get(sound_effect_id, null)
+		if sound_effect and not sound_effect.audio_streams.is_empty():
+			streams.append(sound_effect.get_random_stream())
 	return streams
 
 func get_actions_triggered_by_card() -> Array[String]: #id of player actions
@@ -309,12 +317,15 @@ func to_json_dict() -> Dictionary:
 		"card_type_id": card_type_id,
 		"card_name": card_name,
 		"description": description,
-		"card_picture": ModExportable.resolve_to_res_path(card_picture.resource_path) if card_picture else "",
+		"card_picture": ModExportable.resolve_to_res_path(card_picture.resource_path, resource_path) if card_picture else "",
 		"category": CardCategory.keys()[category],
 		"once_per_game": once_per_game,
 		"always_in_opening_hand": always_in_opening_hand,
 		"energy_cost": energy_cost,
 		"effect_intents": intent_dicts,
+		"video_action_tags": _enum_values_to_names(video_action_tags, VideoClip.ActionTags.keys()),
+		"video_participant_tags": _enum_values_to_names(video_participant_tags, VideoClip.ParticipantTags.keys()),
+		"sound_effect_ids": Array(sound_effect_ids),
 	}
 	if self is ComboEventCardDefinition:
 		var combo_self := self as ComboEventCardDefinition
@@ -360,6 +371,16 @@ static func from_json_dict(data: Dictionary, mod_folder_path: String = "") -> Ev
 		var intent: EffectAndTargetIntent = ModdableResourceRegistry.instantiate(intent_data) as EffectAndTargetIntent
 		if intent:
 			card_def.effect_intents.append(intent)
+	for tag_name in data.get("video_action_tags", []):
+		var action_tag_key: String = ModExportable.find_case_insensitive_enum_key(VideoClip.ActionTags.keys(), str(tag_name))
+		if action_tag_key != "":
+			card_def.video_action_tags.append(VideoClip.ActionTags[action_tag_key])
+	for tag_name in data.get("video_participant_tags", []):
+		var participant_tag_key: String = ModExportable.find_case_insensitive_enum_key(VideoClip.ParticipantTags.keys(), str(tag_name))
+		if participant_tag_key != "":
+			card_def.video_participant_tags.append(VideoClip.ParticipantTags[participant_tag_key])
+	for sound_effect_id in data.get("sound_effect_ids", []):
+		card_def.sound_effect_ids.append(str(sound_effect_id))
 
 	if card_def is ComboEventCardDefinition:
 		var combo_def := card_def as ComboEventCardDefinition
@@ -370,3 +391,15 @@ static func from_json_dict(data: Dictionary, mod_folder_path: String = "") -> Ev
 		combo_def.priority = int(data.get("priority", 0))
 
 	return card_def
+
+### The names of enum values (written by name in JSON, read back with ModExportable.find_case_insensitive_enum_key()).
+static func _enum_values_to_names(values: Array, enum_keys: Array) -> Array:
+	var names: Array = []
+	for value in values:
+		names.append(enum_keys[value])
+	return names
+
+### The registered content this card's effects hand out or act with (kind -> ids, see EffectIntent.get_referenced_content_ids()).
+### A mod card naming something that isn't installed is skipped on load; a missing sound effect is only left out.
+func get_referenced_content_ids() -> Dictionary:
+	return EffectAndTargetIntent.collect_referenced_content_ids(effect_intents)

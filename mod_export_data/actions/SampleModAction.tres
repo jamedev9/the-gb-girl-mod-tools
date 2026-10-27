@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="PlayerAction" format=3]
+
+[ext_resource type="Script" path="res://resources/player_action.gd" id="1_action"]
+[ext_resource type="Script" path="res://scripts/object_classes/effect_and_target_intention/effect_and_target_intent.gd" id="2_intent"]
+[ext_resource type="Script" path="res://scripts/object_classes/event_cards/intent_effects/deal_damage_effect.gd" id="3_damage"]
+[ext_resource type="Texture2D" path="res://mod_export_data/images/sample_action.png" id="4_picture"]
+
+[sub_resource type="Resource" id="Resource_damage"]
+script = ExtResource("3_damage")
+damage = 6
+
+[sub_resource type="Resource" id="Resource_intent"]
+script = ExtResource("2_intent")
+targeting_intent = 2
+effect_intent = SubResource("Resource_damage")
+
+[resource]
+script = ExtResource("1_action")
+action_id = "sample_mod_action"
+action_name = "Sample Mod Action"
+picture = ExtResource("4_picture")
+move_energy = 1
+energy_per_round = 1
+effect_intents = Array[ExtResource("2_intent")]([SubResource("Resource_intent")])
+reward_card_ids = Array[String](["cumshot"])
+log_text_when_started = "You start the Sample Mod Action."

@@ -13,13 +13,9 @@ enum LineRequirement {
 
 ### Every field emits `changed` when set (from the Inspector, an undo, or the Encounter Map editor tab), so the tab
 ### redraws whatever changed it.
-@export var encounter: EncounterDefinition:
-	set(value):
-		encounter = value
-		emit_changed()
-### Names the encounter by id when `encounter` isn't set: for an encounter that has no file where the map is made (a
-### base-game encounter on a mod map, made in the mod tools). `encounter` wins when both are set. A map loaded from a
-### mod's JSON only has this.
+### The encounter on this node, by its encounter_id (any pack's, or a mod's), like the rest of the game names content. The
+### Encounter Map editor tab sets it when an encounter is placed; in the Inspector it has a dropdown of the encounters found
+### in the project, and any id can be typed (a base-game encounter in the mod tools).
 @export var encounter_id: String = "":
 	set(value):
 		encounter_id = value
@@ -46,10 +42,11 @@ enum LineRequirement {
 		unlock_conditions = value
 		emit_changed()
 
+func _validate_property(property: Dictionary) -> void:
+	ContentIdSuggestions.apply_to_property(property, "encounter_id", "EncounterDefinition", "encounter_id")
+
 func get_encounter_id() -> String:
-	if encounter == null:
-		return encounter_id
-	return encounter.encounter_id
+	return encounter_id
 
 ### Everything the encounter needs to unlock, as conditions: one "Complete X" per line (ALL) or a single "Complete X or Y"
 ### (ANY), then the extra conditions. Both the unlock check (MetaGame) and the encounter description's list read this,

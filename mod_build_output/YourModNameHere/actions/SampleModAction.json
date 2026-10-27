@@ -1,0 +1,30 @@
+{
+	"_class": "PlayerAction",
+	"action_id": "sample_mod_action",
+	"action_name": "Sample Mod Action",
+	"effect_intents": [
+		{
+			"_class": "EffectAndTargetIntent",
+			"effect_intent": {
+				"_class": "DealDamageEffect",
+				"damage": 6,
+				"intent_effect_id": "",
+				"scale_with_stacks": false
+			},
+			"targeting_intent": 2,
+			"targeting_rules": []
+		}
+	],
+	"energy_per_round": 1,
+	"log_text_when_ended": "",
+	"log_text_when_started": "You start the Sample Mod Action.",
+	"looping_sound_category": "NONE",
+	"move_energy": 1,
+	"picture": "sample_action.png",
+	"reward_card_ids": [
+		"cumshot"
+	],
+	"start_sound_effect": "NONE",
+	"triggered_components": [],
+	"video_action_tags": []
+}

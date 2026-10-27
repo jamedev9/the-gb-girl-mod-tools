@@ -17,6 +17,7 @@ names = Array[String](["Own-List Oscar"])
 script = ExtResource("1_type")
 opponent_type_id = "sample_mod_partner"
 opponent_type_name = "Sample Mod Partner"
+idle_picture_list_id = "sample_mod_idle_pictures"
 picture = ExtResource("4_picture")
 video_particpant_tags = Array[int]([8])
 name_lists = Array[ExtResource("2_names")]([SubResource("Resource_names")])

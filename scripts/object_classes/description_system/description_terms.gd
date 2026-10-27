@@ -80,6 +80,7 @@ static func passive(definition: PassiveEffectDefinition) -> DescriptionSegment:
 	_finish_building(guard_key)
 	return DescriptionSegment.nested_segment(definition.get_effect_name(), description)
 
+### The template action; the rework log passes the save's effective one itself (through its own term links).
 static func player_action_term(action: PlayerAction) -> DescriptionSegment:
 	var guard_key: String = KIND_ACTION + ":" + action.action_id
 	if not _start_building(guard_key):

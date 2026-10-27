@@ -9,11 +9,17 @@ script = ExtResource("1_i72gl")
 map_region_id = "testregion_one"
 encounter_id = "modded_encounter_one"
 encounter_display_name = "Modded Encounter One"
-encounter_description = "This is a test encounter."
+encounter_description = "Test: Sample Mod Partners (name lists, Move, stacking status with a mod keyword, idle pictures), the mod music track, the mod card's sound effect. Clearing it unlocks the Sample Mod Action. You have Carolina's passive (Blonde Bombshell) here. Also try it in Full Rework: mod cards, passives and characters load there now (a new game as Carolina Sweets drops her footjob Action with a warning)."
 encounter_picture = ExtResource("1_sivxn")
-music_track_id = "blow_him_hard"
+music_track_id = "sample_mod_track"
+rewards_granted_by_clearing = Array[String](["sample_mod_unlock_action"])
 opponents_in_encounter_reserves = Dictionary[String, int]({
-"sample_mod_partner": 2
+"sample_mod_partner": 3
 })
 min_simultaneous_opponents = 2
+max_simultaneous_opponents = 3
+temporary_player_passives = Array[String](["carolina_passive"])
+event_cards_starting_hand = Dictionary[String, int]({
+"testmodcard_givepleasure": 3
+})
 metadata/_custom_type_script = "uid://3ptqijs4tuix"

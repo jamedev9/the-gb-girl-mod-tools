@@ -1,24 +1,30 @@
 {
 	"_class": "EncounterDefinition",
 	"branch_index": 0,
-	"encounter_description": "This is a test encounter.",
+	"encounter_description": "Test: Sample Mod Partners (name lists, Move, stacking status with a mod keyword, idle pictures), the mod music track, the mod card's sound effect. Clearing it unlocks the Sample Mod Action. You have Carolina's passive (Blonde Bombshell) here. Also try it in Full Rework: mod cards, passives and characters load there now (a new game as Carolina Sweets drops her footjob Action with a warning).",
 	"encounter_display_name": "Modded Encounter One",
 	"encounter_id": "modded_encounter_one",
 	"encounter_music": "",
 	"encounter_picture": "selfie_1.jpg",
-	"event_cards_starting_hand": {},
+	"event_cards_starting_hand": {
+		"testmodcard_givepleasure": 3
+	},
 	"fixed_spawn_order": {},
 	"forbid_all_summons": false,
 	"forbidden_ally_summons": [],
 	"map_region_id": "testregion_one",
-	"max_simultaneous_opponents": 0,
+	"max_simultaneous_opponents": 3,
 	"min_simultaneous_opponents": 2,
-	"music_track_id": "blow_him_hard",
+	"music_track_id": "sample_mod_track",
 	"opponents_in_encounter_reserves": {
-		"beach_boy": 2
+		"sample_mod_partner": 3
 	},
 	"reward_cards_starting_hand": {},
-	"rewards_granted_by_clearing": [],
-	"temporary_player_passives": [],
+	"rewards_granted_by_clearing": [
+		"sample_mod_unlock_action"
+	],
+	"temporary_player_passives": [
+		"carolina_passive"
+	],
 	"unlock_conditions": []
 }

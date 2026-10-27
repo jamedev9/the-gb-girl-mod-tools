@@ -239,13 +239,14 @@ func _redraw_now() -> void:
 			continue
 		shown_ids.append(encounter_id)
 		var graph_node: EncounterMapGraphNode = _graph_nodes.get(encounter_id, null)
+		var encounter_info: Dictionary = _get_encounter_info_for_id(encounter_id)
 		if graph_node == null:
 			graph_node = EncounterMapGraphNode.new()
-			graph_node.show_map_node(map_node)
+			graph_node.show_map_node(map_node, encounter_info)
 			_graph.add_child(graph_node)
 			_graph_nodes[encounter_id] = graph_node
 		else:
-			graph_node.show_map_node(map_node)
+			graph_node.show_map_node(map_node, encounter_info)
 		graph_node.set_map_position(map_node.position)
 	for encounter_id: String in _graph_nodes.keys():
 		if encounter_id not in shown_ids:
@@ -481,13 +482,31 @@ func _update_palette_placed_marks() -> void:
 		_palette_list.set_item_tooltip(index, path + ("\nAlready on the map." if is_placed else ""))
 	_filter_encounter_cards()
 
+### The encounter files whose encounter is on the map (map nodes name their encounter by id).
 func _get_placed_encounter_paths() -> Array[String]:
 	var placed_paths: Array[String] = []
-	if _map:
-		for map_node: EncounterMapNode in _map.nodes.values():
-			if map_node and map_node.encounter:
-				placed_paths.append(map_node.encounter.resource_path)
+	if _map == null:
+		return placed_paths
+	var placed_ids: Array[String] = []
+	for map_node: EncounterMapNode in _map.nodes.values():
+		if map_node:
+			placed_ids.append(map_node.get_encounter_id())
+	for path in _collect_encounter_paths():
+		var info: Dictionary = _get_encounter_info(path)
+		if not info.is_empty() and info["id"] in placed_ids:
+			placed_paths.append(path)
 	return placed_paths
+
+### What a graph node shows for an encounter id: the info of the encounter file with that id, or {} when there is no
+### such file here (a base-game encounter in the mod tools: the node shows only its id).
+func _get_encounter_info_for_id(encounter_id: String) -> Dictionary:
+	for path in _collect_encounter_paths():
+		var info: Dictionary = _get_encounter_info(path)
+		if not info.is_empty() and info["id"] == encounter_id:
+			var info_with_path: Dictionary = info.duplicate()
+			info_with_path["path"] = path
+			return info_with_path
+	return {}
 
 ### Makes the Encounters panel hold one card per encounter file, sorted by name (cards are kept and reused).
 func _refresh_encounter_cards() -> void:
@@ -603,20 +622,13 @@ func _place_encounter(path: String, map_position: Vector2) -> void:
 	if encounter_id.is_empty():
 		push_warning("Encounter map: '%s' has no encounter_id." % path)
 		return
-	var map_node: EncounterMapNode = EncounterMapNode.new()
-	map_node.encounter = encounter_def
-	_add_map_node(map_node, map_position)
+	_place_encounter_by_id(encounter_id, map_position)
 
-### "Add by id": a node that only names the encounter (EncounterMapNode.encounter_id), for an encounter with no file here.
-### An encounter that does have a file here is placed from its file instead.
+### Every node names its encounter by id (EncounterMapNode.encounter_id). "Add by id" places an encounter that has no file
+### here (a base-game encounter in the mod tools); dragging a file in places it the same way.
 func _place_encounter_by_id(encounter_id: String, map_position: Vector2) -> void:
 	if _map == null or encounter_id.is_empty():
 		return
-	for path in _collect_encounter_paths():
-		var info: Dictionary = _get_encounter_info(path)
-		if not info.is_empty() and info["id"] == encounter_id:
-			_place_encounter(path, map_position)
-			return
 	var map_node: EncounterMapNode = EncounterMapNode.new()
 	map_node.encounter_id = encounter_id
 	_add_map_node(map_node, map_position)

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="MusicTrack" format=3]
+
+[ext_resource type="Script" path="res://scripts/object_classes/music/music_track.gd" id="1_track"]
+[ext_resource type="AudioStream" path="res://mod_export_data/music/sample_track.mp3" id="2_stream"]
+
+[resource]
+script = ExtResource("1_track")
+track_id = "sample_mod_track"
+stream = ExtResource("2_stream")
+track_name = "Sample Track"
+artist = "Sample Artist"

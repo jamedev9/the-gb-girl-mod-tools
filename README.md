@@ -25,8 +25,10 @@ Current capabilities of the mod tool:
 * Making Partners (opponent types)
 * Making Moves for Partners
 * Making name lists for Partners
+* Making Actions and Action progressions
+* Adding sound effects, music tracks, picture lists and keywords
 
-Your content refers to other content by its ID: the IDs of the base game's content, or the IDs of content in your mod.
+Your content refers to other content by its ID: the IDs of the base game's content, or the IDs of content in your mod. ID fields have a dropdown of the IDs of your mod's content, and you can type the ID of one of the game's.
 
 ### Resource IDs
 IDs for the main game's resources can be found here: https://docs.google.com/spreadsheets/d/1OT9ggGOfzt4Y84_ii2bFYrO-xegaMyqTZXvsb6jgrfA/edit?usp=sharing
@@ -40,6 +42,8 @@ Accepted file formats: *.mp4, *.m4v, *.mov, *.mkv, *.webm, *.avi, *.ogv
 
 ## Custom character definitions
 In `mod_export_data/characters`, create a new CharacterDefinition resource. You can place a custom portrait in `mod_export_data/images`, then link the image in the CharacterDefinition resource.
+* **Character Id**: a unique ID. It must not be the ID of one of the game's characters (such a character is skipped).
+* **Starting Passives**, **Starting Actions** and the starting cards name content by ID: yours or the game's. Anything that isn't installed for the player is left out. A character with no installed starting Action left starts with the game's default Actions.
 
 ## Status effects
 Go to `mod_export_data/status_effects` and create a new StatusEffectDefinition resource.
@@ -54,12 +58,18 @@ Fill in:
 
 Cards, Moves and passives apply a status by its ID: the **Status Id** field of an **Apply Status Effect**. The field has a dropdown of the statuses in your mod, and you can type the ID of one of the game's statuses.
 
+A status is skipped if its effects use content that isn't installed for the player (for example a card from another mod they removed).
+
 ## Passive effects
-Go to `mod_export_data/passives` and create a new PassiveEffectDefinition resource. These are made in the same way as status effects.
+Go to `mod_export_data/passives` and create a new PassiveEffectDefinition resource. These are made in the same way as status effects. A passive must not use the ID of one of the game's passives, and is skipped if its effects use content that isn't installed for the player. If the player removes your mod later, their save keeps the passive and gives it back when the mod is installed again.
 
 ## Event cards
 Event cards can be made to add new Combo Cards, or to use as starting cards for custom characters.
 * **Translation Id**: not used by mods, leave it empty.
+* **Sound Effect Ids**: sound effects played when the card is played, by ID: yours (see "Sound effects") or the game's.
+* **Video Action Tags** and **Video Participant Tags**: the kind of video clip that fits the card.
+
+A card must not use the ID of one of the game's cards, and is skipped if its effects use content that isn't installed for the player. A sound effect that isn't installed is only left out.
 
 ## Image overrides
 In `mod_export_data/image_replacements`, create a new ImageReplacementSet resource. Inside this resource, add one or more ImageReplacement resources. Each ImageReplacement needs a ReplacementType, the ID of the replacement target, and a path to the image inside `mod_export_data/images`.
@@ -79,7 +89,7 @@ Fill in:
 * **Encounter Picture**: any image in the project. It is copied into the mod when you export.
 * Music, one of:
   * **Encounter Music**: your own `.ogg`, `.mp3` or `.wav` file. Other formats can't be loaded by the game. It is copied into the mod when you export.
-  * **Music Track Id**: one of the game's soundtracks, by its ID (see "Resource IDs"). Leave Encounter Music empty when you use it: your own file wins if both are set.
+  * **Music Track Id**: a soundtrack by its ID: yours (see "Music tracks") or one of the game's (see "Resource IDs"). Leave Encounter Music empty when you use it: your own file wins if both are set.
 * **Opponents In Encounter Reserves**: the Partners in the encounter, as opponent type ID -> how many: yours (see "Partners") or the game's. At least one is needed.
 * **Min / Max Simultaneous Opponents**: how many Partners can be active at once (Max 0 = the game's default).
 * Optional:
@@ -165,6 +175,7 @@ Fill in:
 * **Opponent Type Id**: a unique ID. It must not be the ID of one of the game's opponent types (such a type is skipped). Encounters name their Partners by this ID.
 * **Opponent Type Name**: shown exactly as written.
 * **Picture**: any image in the project. It is copied into the mod when you export. Modded Partners are always shown with this picture.
+* **Idle Picture List Id**: the picture list the small idle picture on the Partner's card comes from, by ID: yours (see "Picture lists") or the game's. Empty = the game's default pictures.
 * **Max Damage**: how much Pleasure makes the Partner orgasm.
 * **Orgasms Before Defeat**: how many orgasms defeat the Partner.
 * **Available Action Ids**: the Partner's Moves, by ID: yours (see "Moves") or the game's. The same Move can be listed more than once to make it come up more often.
@@ -194,10 +205,79 @@ Fill in:
 
 Partners use the list through their **Name List Ids**.
 
+## Actions
+Actions are what the player puts on Partners (like Blowjob or Vaginal). Go to `mod_export_data/actions` and create a new PlayerAction resource for each Action.
+
+Fill in:
+* **Action Id**: a unique ID. It must not be the ID of one of the game's Actions (such an Action is skipped).
+* **Action Name**: shown exactly as written.
+* **Picture**: any image in the project. It is copied into the mod when you export.
+* **Move Energy** and **Energy Per Round**: what it costs to put the Action on a Partner, and each round it stays there.
+* **Effect Intents**: what the Action does each round it is on a Partner. Effects that act on that Partner use **SINGLE_OPPONENT** targeting.
+* Optional:
+  * **Triggered Components**: reactions while the Action is on a Partner, made like a status effect's triggers.
+  * **Reward Card Ids**: card IDs.
+  * **Video Action Tags**: the kind of video clip that fits the Action.
+  * **Log Text When Started**: shown in the log, exactly as written.
+  * **Looping Sound Category** and **Start Sound Effect**: one of the game's sounds.
+
+**Opponent Art Parts** is not used by mods.
+
+Players get your Action from a reward (**Reward_UnlockPlayerActions**, see "Rewards") or as a starting Action of your character. An Action is skipped if its effects use content that isn't installed for the player. If the player removes your mod later, their save keeps the Action and gives it back when the mod is installed again.
+
+## Action progressions
+An Action progression gives rewards once the player has made a number of Partners cum with an Action. Go to `mod_export_data/action_progressions` and create a new ActionProgressionDefinition resource.
+
+Fill in:
+* **Action Ids**: the Actions it counts, by ID. An Action can only have one progression: the game's Actions already have one, so use your own Actions here.
+* **Rewards Per Guy Defeated**: reward ID -> how many Partners it takes.
+* Optional: **Action Related Rewards**: reward IDs shown with the Action's progression.
+
+Actions and rewards that aren't installed for the player are left out. A progression with no Action left is skipped.
+
+## Sound effects
+Put your sound files in `mod_export_data/sounds`, then go to `mod_export_data/sound_effects` and create a new AudioStreamsForSoundEffect resource.
+
+Fill in:
+* **Sound Effect Id**: a unique ID. It must not be the ID of one of the game's sound effects (such a sound effect is skipped).
+* **Audio Streams**: your sound files. One of them is picked at random each time the sound effect plays. Only `.ogg`, `.mp3` and `.wav` files can be loaded by the game.
+
+Event cards play sound effects through their **Sound Effect Ids**.
+
+## Music tracks
+Put your music file in `mod_export_data/music`, then go to `mod_export_data/music_tracks` and create a new MusicTrack resource.
+
+Fill in:
+* **Track Id**: a unique ID. It must not be the ID of one of the game's tracks (such a track is skipped).
+* **Stream**: your music file (`.ogg`, `.mp3` or `.wav`).
+* Optional: **Track Name** and **Artist**.
+
+Encounters play it through their **Music Track Id**, so several encounters can share one track.
+
+## Picture lists
+Go to `mod_export_data/picture_lists` and create a new PictureList resource.
+
+Fill in:
+* **Id**: a unique ID. It must not be the ID of one of the game's lists (such a list is skipped).
+* **Pictures**: any images in the project. They are copied into the mod when you export. One is picked at random.
+
+Partners use the list through their **Idle Picture List Id**.
+
+## Keywords
+Keywords are the game's highlighted terms (like Pleasure or Energy) that show a tooltip when hovered. Go to `mod_export_data/keywords` and create a new GameplayKeyword resource.
+
+Fill in:
+* **Keyword Id**: a unique ID, in capitals (for example `MY_KEYWORD`). It must not be the ID of one of the game's keywords (such a keyword is skipped).
+* **Display Name**: the word shown in texts, exactly as written.
+* **Description**: the tooltip text. It can name other keywords as `{KEYWORD_ID}`.
+* Optional: **Color** and **Icon**.
+
+Write `{MY_KEYWORD}` in any description of your mod (statuses, passives, Moves, rewards...) to show the keyword with its tooltip. The game's keywords work the same way, for example `{PLEASURE}`.
+
 ## Exporting the mod
 When you are ready to build the mod, open and run the `mod_exporter.gd` script (Ctrl+Shift+X). This converts your resources into the right format inside the `mod_build_output` folder:
-* Pictures (encounters, status effects, characters, passives, cards, Moves, Partners) go into `images`, and encounter music into `music`.
-* Status effects, map regions, rewards, encounters, maps, Moves, Partners and name lists each get their own folder.
+* Pictures (encounters, status effects, characters, passives, cards, Moves, Partners, Actions, picture lists, keywords) go into `images`, music into `music` and sound effects into `sounds`.
+* Every kind of content gets its own folder.
 * A map without a Map Id, or with a node that has no encounter, is not exported. The same goes for any resource that fails its checks. The Output panel says which file and why.
 
 Move the output folder into the game's mods folder:

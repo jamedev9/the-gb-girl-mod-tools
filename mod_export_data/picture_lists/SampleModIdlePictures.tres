@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="PictureList" format=3]
+
+[ext_resource type="Script" path="res://resources/picture_lists/picture_list.gd" id="1_list"]
+[ext_resource type="Texture2D" path="res://mod_export_data/images/sample_idle_1.jpg" id="2_pic"]
+[ext_resource type="Texture2D" path="res://mod_export_data/images/sample_idle_2.jpg" id="3_pic"]
+
+[resource]
+script = ExtResource("1_list")
+id = "sample_mod_idle_pictures"
+pictures = Array[Texture2D]([ExtResource("2_pic"), ExtResource("3_pic")])

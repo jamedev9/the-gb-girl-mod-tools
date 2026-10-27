@@ -1,0 +1,12 @@
+{
+	"_class": "PictureList",
+	"id": "sample_mod_idle_pictures",
+	"pictures": [
+		{
+			"file": "sample_idle_1.jpg"
+		},
+		{
+			"file": "sample_idle_2.jpg"
+		}
+	]
+}

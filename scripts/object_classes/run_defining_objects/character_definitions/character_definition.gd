@@ -25,6 +25,12 @@ class_name CharacterDefinition
 ### duplicate() keeps it.
 @export_storage var is_modded: bool = false
 
+func _validate_property(property: Dictionary) -> void:
+	ContentIdSuggestions.apply_to_array_property(property, "starting_passives", "PassiveEffectDefinition", "passive_id")
+	ContentIdSuggestions.apply_to_array_property(property, "starting_actions", "PlayerAction", "action_id")
+	ContentIdSuggestions.apply_to_property(property, "starting_ally_card", "EventCardDefinition", "card_type_id")
+	ContentIdSuggestions.apply_to_property(property, "starting_orgasm_card", "EventCardDefinition", "card_type_id")
+
 func apply_to_save_game(save_game_state: SaveGameState) -> void:
 	if character_id:
 		save_game_state.selected_character_id = character_id

@@ -9,6 +9,7 @@
 		"move_from_a_removed_mod"
 	],
 	"card_color": "8a2be3ff",
+	"idle_picture_list_id": "sample_mod_idle_pictures",
 	"max_damage": 40,
 	"name_list_ids": [
 		"sample_mod_names",

@@ -1,0 +1,7 @@
+{
+	"_class": "MusicTrack",
+	"artist": "Sample Artist",
+	"stream": "sample_track.mp3",
+	"track_id": "sample_mod_track",
+	"track_name": "Sample Track"
+}

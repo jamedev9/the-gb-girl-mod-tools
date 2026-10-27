@@ -9,13 +9,14 @@ script = ExtResource("2_2ycgm")
 map_region_id = "testregion_one"
 encounter_id = "modded_encounter_two"
 encounter_display_name = "Modded Encounter Two"
-encounter_description = "This is another test encounter."
+encounter_description = "Test: put the Sample Mod Action (from Modded Encounter One) on Partners. Making 2 of them cum with it gives the Sample Progression Reward (1 LTB card)."
 encounter_picture = ExtResource("1_e3e5l")
 music_track_id = "lofi_study"
 opponents_in_encounter_reserves = Dictionary[String, int]({
 "playboy": 1,
 "pornstar_black": 1,
-"pornstar_white": 1
+"pornstar_white": 1,
+"sample_mod_partner": 2
 })
 min_simultaneous_opponents = 3
 metadata/_custom_type_script = "uid://3ptqijs4tuix"

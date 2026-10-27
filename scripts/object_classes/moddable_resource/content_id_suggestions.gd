@@ -29,20 +29,37 @@ static func apply_to_array_property(property: Dictionary, field_name: String, sc
 	property.hint = PROPERTY_HINT_TYPE_STRING
 	property.hint_string = "%d/%d:%s" % [TYPE_STRING, PROPERTY_HINT_ENUM_SUGGESTION, ",".join(get_ids(script_class, id_field))]
 
-### Every id found in .tres files whose resource uses script_class (the file's own [resource], not sub-resources), sorted.
+### Every id found in .tres files whose resource uses script_class or one of its subclasses (the file's own [resource], not
+### sub-resources), sorted. Subclasses count so e.g. "EventCardDefinition" also lists Combo / Orgasm / Problem / Reward cards.
 static func get_ids(script_class: String, id_field: String) -> PackedStringArray:
 	var cache_key: String = script_class + "|" + id_field
 	var cached: Dictionary = _cache.get(cache_key, {})
 	if not cached.is_empty() and Time.get_ticks_msec() - int(cached["time"]) < CACHE_MSEC:
 		return cached["ids"]
 	var ids: PackedStringArray = []
+	var script_classes: PackedStringArray = _get_class_and_subclasses(script_class)
 	for folder in SEARCH_FOLDERS:
-		_collect_ids(folder, script_class, id_field, ids)
+		_collect_ids(folder, script_classes, id_field, ids)
 	ids.sort()
 	_cache[cache_key] = {"time": Time.get_ticks_msec(), "ids": ids}
 	return ids
 
-static func _collect_ids(folder: String, script_class: String, id_field: String, ids: PackedStringArray) -> void:
+### script_class and every global class that extends it (directly or further down).
+static func _get_class_and_subclasses(script_class: String) -> PackedStringArray:
+	var base_of: Dictionary = {}
+	for entry in ProjectSettings.get_global_class_list():
+		base_of[str(entry["class"])] = str(entry["base"])
+	var classes: PackedStringArray = [script_class]
+	for class_name_str: String in base_of.keys():
+		var current: String = base_of[class_name_str]
+		while current != "":
+			if current == script_class:
+				classes.append(class_name_str)
+				break
+			current = base_of.get(current, "")
+	return classes
+
+static func _collect_ids(folder: String, script_classes: PackedStringArray, id_field: String, ids: PackedStringArray) -> void:
 	var dir: DirAccess = DirAccess.open(folder)
 	if dir == null:
 		return
@@ -51,20 +68,26 @@ static func _collect_ids(folder: String, script_class: String, id_field: String,
 	while item_name != "":
 		if dir.current_is_dir():
 			if not item_name.begins_with("."):
-				_collect_ids(folder.path_join(item_name), script_class, id_field, ids)
+				_collect_ids(folder.path_join(item_name), script_classes, id_field, ids)
 		elif item_name.ends_with(".tres"):
-			var id: String = _read_id(folder.path_join(item_name), script_class, id_field)
+			var id: String = _read_id(folder.path_join(item_name), script_classes, id_field)
 			if id != "" and not ids.has(id):
 				ids.append(id)
 		item_name = dir.get_next()
 	dir.list_dir_end()
 
-### The id_field value of the file's [resource] section, or "" when the file's resource isn't a script_class.
-static func _read_id(path: String, script_class: String, id_field: String) -> String:
+### The id_field value of the file's [resource] section, or "" when the file's resource isn't one of script_classes.
+static func _read_id(path: String, script_classes: PackedStringArray, id_field: String) -> String:
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		return ""
-	if not file.get_line().contains("script_class=\"%s\"" % script_class):
+	var header: String = file.get_line()
+	var class_start: int = header.find("script_class=\"")
+	if class_start == -1:
+		return ""
+	class_start += "script_class=\"".length()
+	var file_class: String = header.substr(class_start, header.find("\"", class_start) - class_start)
+	if not script_classes.has(file_class):
 		return ""
 	var in_resource_section: bool = false
 	var prefix: String = id_field + " = \""

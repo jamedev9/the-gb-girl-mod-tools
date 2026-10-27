@@ -1,0 +1,10 @@
+{
+	"_class": "ActionProgressionDefinition",
+	"action_ids": [
+		"sample_mod_action"
+	],
+	"action_related_rewards": [],
+	"rewards_per_guy_defeated": {
+		"sample_mod_progression_reward": 2
+	}
+}

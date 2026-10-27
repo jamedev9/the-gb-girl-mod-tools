@@ -3,8 +3,12 @@ extends ModExportable
 class_name EncounterMap
 
 ### An overworld map drawn from hand-placed nodes: which encounters are on it, where they are, and what unlocks each of
+### them (see EncounterMapNode). The rework's main map (Full Rework, set as ContentSet.encounter_map) carries its
+### encounters over into the rework, so they need no content set entry, and its nodes replace the encounters' own
 ### unlock_conditions. Mods add maps of their own (JSON, see to_json_dict()), which the player picks in the overworld
 ### map's dropdown in either mode (AutoloadDatabase.set_active_map()).
+### Shared class (not in the rework folder) so AutoloadDatabase/ContentSet can name it; the rework's map file itself
+### lives in the rework folder.
 
 ### A mod map's id: the save remembers the chosen map by it. Unused on the main map (AutoloadDatabase.MAIN_MAP_ID).
 @export var map_id: String = "":

@@ -104,3 +104,13 @@ static func tooltip_section(header_key: String, lines: Array) -> Array[Descripti
 ### trigger_conditions shape) and PlayerAction.get_description_segments().
 static func trigger_line(when_segments: Array[DescriptionSegment], effect_intents: Array[EffectAndTargetIntent]) -> Array[DescriptionSegment]:
 	return DescriptionBuilder.describe_when_then(when_segments, EffectAndTargetIntent.describe_all(effect_intents))
+
+### The registered content this effect's ticks and triggers hand out or act with (kind -> ids, see
+### EffectIntent.get_referenced_content_ids()). A mod status or passive naming something that isn't installed is skipped on
+### load. Modifier components only filter (they match nothing when an id is missing), so they are left out.
+func get_referenced_content_ids() -> Dictionary:
+	var intents: Array = []
+	for component in get_ticking_components() + get_triggered_components():
+		if component:
+			intents.append_array(component.effect_intents)
+	return EffectAndTargetIntent.collect_referenced_content_ids(intents)

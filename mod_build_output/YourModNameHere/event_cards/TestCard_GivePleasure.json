@@ -20,5 +20,10 @@
 		}
 	],
 	"energy_cost": 1,
-	"once_per_game": false
+	"once_per_game": false,
+	"sound_effect_ids": [
+		"sample_mod_sound"
+	],
+	"video_action_tags": [],
+	"video_participant_tags": []
 }

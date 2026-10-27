@@ -7,6 +7,8 @@ const EXCLUDED_ENCOUNTER_IDS_IN_RELEASE: Array[String] = ["test"] ### use the ac
 const REWORK_CONTENT_PACK_ROOT: String = "res://content_packs/publishable_rework_content/"
 const REWORK_CONTENT_SET_PATH: String = "res://content_packs/publishable_rework_content/rework_content_set.tres"
 
+### The ContentSet Full Rework mode loaded from, or the one whose art Default mode applies when the new-UI
+### test scene asks for the rework art (PlayModeSettings.include_rework_content_in_default); otherwise null.
 var active_content_set: ContentSet
 ### The map the player is looking at (set_active_map()); null = the prototype map (Default mode's main map, laid out
 ### from unlock depth and branch_index). While set, it decides which encounters are on the map, where, and what unlocks
@@ -16,6 +18,7 @@ var encounter_map: EncounterMap
 const MAIN_MAP_ID: String = ""
 ### The id of the map the player is looking at: MAIN_MAP_ID or a mod map's map_id.
 var active_map_id: String = MAIN_MAP_ID
+### The main map: the rework's (ContentSet.encounter_map) in Full Rework; null (the prototype map) in Default mode.
 var main_encounter_map: EncounterMap
 ### Maps added by mods (both modes), by map_id.
 var mod_maps: Dictionary[String, EncounterMap] = {}
@@ -49,6 +52,7 @@ var character_definitions: Dictionary[String,CharacterDefinition] = {}
 var gameplay_keywords_by_id: Dictionary[String,GameplayKeyword] = {}
 var music_tracks_by_id: Dictionary[String,MusicTrack] = {}
 var name_lists_by_id: Dictionary[String,NameList] = {}
+var sound_effects_by_id: Dictionary[String,AudioStreamsForSoundEffect] = {}
 
 ### === Hardcoded, not part of content packs (left as-is per your call) ===
 var player_actions_by_id: Dictionary[String,PlayerAction] = {}
@@ -88,6 +92,7 @@ func _ready() -> void:
 ### blocking synchronously on load() for each of ~650 files in turn - lets the main
 ### scene (and the main menu within it) appear immediately instead of waiting on this.
 ### See the main menu scene's _run_when_content_ready() for how callers wait for this to finish.
+### Both modes scan every pack (Default mode skips the rework pack, see _collect_tres_paths_recursive). Full Rework
 ### keeps only what _is_registered_from_scan() allows, then applies the ContentSet once the scan is done.
 func _begin_loading_all_content_packs() -> void:
 	_pending_load_paths = []
@@ -133,6 +138,8 @@ func _handle_loaded_content_pack_resource(resource: Resource, path: String, repl
 		video_clips.append(resource)
 	_register_resource(resource, path, replaces_scanned)
 
+### Full Rework (and Default mode with the rework content included): the rework's art for opponent types
+### (appearances) and player actions (art parts) lives in the ContentSet, not on the prototype's files - those must not reference rework art, since
 ### prototype builds don't ship it. Put it on the resource here, just before it is registered. An
 ### OpponentType is copied first so the shared file's resource stays untouched (opponent types are always
 ### looked up by id from this database, so nothing keeps pointing at the original); a PlayerAction is
@@ -158,6 +165,7 @@ func _apply_rework_art_from_content_set(resource: Resource) -> Resource:
 			player_action.opponent_art_parts = art_part_list.parts.duplicate()
 	return resource
 
+### The ContentSet of the current play mode (null in Default mode unless it includes the rework content
 ### and the set is actually shipped). Loads it on demand, since things like a new SaveGameState can ask
 ### before the deferred content load has started.
 func get_active_content_set() -> ContentSet:
@@ -165,12 +173,18 @@ func get_active_content_set() -> ContentSet:
 		active_content_set = load(REWORK_CONTENT_SET_PATH) as ContentSet
 	return active_content_set
 
+#region Full Rework: what is registered
+### Content types Full Rework takes from EVERY pack. Everything else (combo cards, characters, player actions, action
+### progressions, rewards, picture lists, video clips) only comes from the rework pack or a ContentSet entry. Which
 ### encounters the player actually sees is decided by the encounter map, not by registering them.
+### ComboEventCardDefinition extends EventCardDefinition but is left out on purpose (_is_open_in_full_rework): combos
+### are found by going through every registered card, so every prototype combo would go live in the rework.
 var _types_open_in_full_rework: Array[Script] = [
 	EncounterDefinition, OpponentType, OpponentActionDefinition, PassiveEffectDefinition, StatusEffectDefinition,
-	EventCardDefinition, MapRegionDefinition, GameplayKeyword, MusicTrack, NameList,
+	EventCardDefinition, MapRegionDefinition, GameplayKeyword, MusicTrack, NameList, AudioStreamsForSoundEffect,
 ]
 
+### Full Rework: the ContentSet, its start encounters and its map are needed while the scan runs (opponent appearances
 ### are put on the opponent types as they load). Its entries are registered after the scan, see _register_content_set_entries().
 func _load_content_set_for_full_rework() -> void:
 	active_content_set = get_active_content_set()
@@ -196,8 +210,10 @@ func _is_open_in_full_rework(resource: Resource) -> bool:
 			return true
 	return false
 
+### Full Rework, after the scan: every ContentSet entry's resource as the rework should see it (a replacement copy, or a
 ### copy with overridden unlock conditions / keyword icon; the plain resource for types that aren't open, e.g. combo
 ### cards and player actions), plus its replacement art. Done after the scan so a plain file from a pack can't
+### overwrite an entry's copy. Entries inside the rework pack only get their art (the scan registered them).
 func _register_content_set_entries() -> void:
 	if PlayModeSettings.current != PlayModeSettings.Mode.FULL_REWORK or active_content_set == null:
 		return
@@ -248,6 +264,7 @@ func _get_registered_keys_of(resource: Resource) -> Array:
 			return content_ids
 	return []
 
+### The entry's content as Full Rework should see it: the shared resource itself, or - if the entry
 ### overrides anything - a copy with the overrides applied, so the prototype's resource stays untouched.
 ### A replacement_content takes the place of the content itself; the other overrides then apply on top of a copy of it.
 func _get_resource_with_overrides(entry: CarryOverEntry) -> Resource:
@@ -287,8 +304,10 @@ func _register_art_for_keys(replacement_type: GlobalImageOverrideManager.Replace
 					ImageOverrideManager.register_texture_override(replacement_type, str(key), texture)
 			return
 
+### Default mode with the rework content included: the content set's replacement art (card images through
 ### ImageOverrideManager, keyword icons on a copy of the keyword) on top of what the prototype scan
 ### registered. Runs after the scan, otherwise the scan would overwrite the keyword copies. Unlock
+### overrides, start encounters, starter deck and passives stay Full Rework only.
 func _apply_rework_replacement_art_in_default_mode() -> void:
 	if PlayModeSettings.current == PlayModeSettings.Mode.FULL_REWORK or not PlayModeSettings.include_rework_content_in_default:
 		return
@@ -309,21 +328,27 @@ func _apply_rework_replacement_art_in_default_mode() -> void:
 func _finish_loading_content_packs() -> void:
 	_register_content_set_entries()
 	_apply_rework_replacement_art_in_default_mode()
-	if PlayModeSettings.current != PlayModeSettings.Mode.FULL_REWORK:
-		_load_character_definitions_from_mods()
-		_load_passive_effect_definitions_from_mods()
-		_load_event_card_definitions_from_mods()
-	### Mod statuses, map regions, rewards, name lists, Moves, opponent types, encounters and maps load in both modes (modding
-	### both load before either is checked for missing content; encounters after them (they name opponent types).
-	### Rewards before encounters (an encounter's rewards_granted_by_clearing may name a mod reward), after the content
-	### rewards hand out. Mod encounters are only ever played from a mod map, never the main one (see is_encounter_on_map()).
+	### Every mod type loads in both modes (modding is coming to the rework too). Content that names nothing loads first;
+	### statuses, passives, cards, Actions, characters, rewards, Moves and opponent types name each other (a reward unlocks an
+	### Action, a card applies a status, a Move summons a type...), so all of them load before any is checked for missing
+	### content (_drop_mod_content_naming_missing_content()). Action progressions, encounters and maps come after that check (they name
+	### Actions, rewards and opponent types). Mod encounters are only ever played from a mod map (see is_encounter_on_map()).
 	_load_status_effect_definitions_from_mods()
 	_load_map_region_definitions_from_mods()
-	_load_reward_definitions_from_mods()
 	_load_name_lists_from_mods()
+	_load_sound_effects_from_mods()
+	_load_music_tracks_from_mods()
+	_load_picture_lists_from_mods()
+	_load_gameplay_keywords_from_mods()
+	_load_passive_effect_definitions_from_mods()
+	_load_event_card_definitions_from_mods()
+	_load_player_actions_from_mods()
+	_load_character_definitions_from_mods()
+	_load_reward_definitions_from_mods()
 	_load_opponent_actions_from_mods()
 	_load_opponent_types_from_mods()
-	_drop_mod_moves_and_types_naming_missing_content()
+	_drop_mod_content_naming_missing_content()
+	_load_action_progressions_from_mods()
 	_load_encounter_definitions_from_mods()
 	_load_encounter_maps_from_mods()
 
@@ -510,6 +535,7 @@ func _register_resource_types() -> void:
 		ResourceRegistration.new(GameplayKeyword, gameplay_keywords_by_id, Callable(self, "_get_gameplay_keyword_keys")),
 		ResourceRegistration.new(MusicTrack, music_tracks_by_id, Callable(self, "_get_music_track_keys")),
 		ResourceRegistration.new(NameList, name_lists_by_id, Callable(self, "_get_name_list_keys")),
+		ResourceRegistration.new(AudioStreamsForSoundEffect, sound_effects_by_id, Callable(self, "_get_sound_effect_keys")),
 	]
 
 ### === Key extractors — one per type, named methods (no inline lambdas) ===
@@ -550,7 +576,9 @@ func _get_character_keys(resource: CharacterDefinition) -> Array:
 
 ### === Generic pack scanning ===
 func _collect_tres_paths_recursive(folder_path: String, out_paths: Array) -> void:
+	### The rework pack's own content (encounters, characters, ...) belongs to Full Rework only; Default mode
 	### (the prototype, also in the new-UI test scene) scans every other pack but must not pick it up.
+	### (Resources of other packs that merely reference rework assets, like art parts, still load as
 	### dependencies - this only skips the scan.)
 	if folder_path == REWORK_CONTENT_PACK_ROOT and PlayModeSettings.current != PlayModeSettings.Mode.FULL_REWORK:
 		return
@@ -579,6 +607,7 @@ func _register_resource(resource: Resource, path: String, replaces_scanned: bool
 				if key == null or key == "":
 					continue
 				if registration.target_dict.has(key) and not replaces_scanned:
+					### Full Rework scans every pack: the rework pack's own version of an id wins, whichever loads first.
 					var existing_path: String = (registration.target_dict[key] as Resource).resource_path
 					var new_is_rework: bool = path.begins_with(REWORK_CONTENT_PACK_ROOT)
 					var existing_is_rework: bool = existing_path.begins_with(REWORK_CONTENT_PACK_ROOT)
@@ -613,6 +642,9 @@ func get_music_track(track_id: String) -> MusicTrack:
 
 func _get_name_list_keys(resource: NameList) -> Array:
 	return [resource.name_list_id]
+
+func _get_sound_effect_keys(resource: AudioStreamsForSoundEffect) -> Array:
+	return [resource.sound_effect_id]
 
 ### === Simple getters, unchanged behavior ===
 func get_status_effect_by_id(status_id: String) -> StatusEffectDefinition:
@@ -694,112 +726,30 @@ func get_all_character_definitions() -> Array[CharacterDefinition]:
 	return defs
 
 ### === Mod-loaded characters (JSON, unrelated to the .tres pack scan) ===
+### === Mod-loaded characters, passives and event cards (JSON) ===
+### Like every mod type they load in both modes, and one with the id of the game's own is skipped. What they name that isn't
+### installed is checked once every mod type has loaded (_drop_mod_content_naming_missing_content()): a passive or card is
+### skipped whole, a character only loses the missing parts.
 func _load_character_definitions_from_mods() -> void:
-	var dir = DirAccess.open(MODS_ROOT)
-	if not dir:
-		return
-	dir.list_dir_begin()
-	var folder_name = dir.get_next()
-	while folder_name != "":
-		if dir.current_is_dir() and not folder_name.begins_with(".") and SettingsManager.is_mod_enabled_on_disk(folder_name):
-			var characters_folder: String = MODS_ROOT + "/" + folder_name + "/characters/"
-			if DirAccess.dir_exists_absolute(characters_folder):
-				var json_files = Utils.get_files_in_folder(characters_folder, "json")
-				for file in json_files:
-					var char_def = _load_character_from_mod(folder_name, file)
-					if char_def is not CharacterDefinition:
-						continue
-					char_def.is_modded = true
-					character_definitions[char_def.character_id] = char_def
-		folder_name = dir.get_next()
-	dir.list_dir_end()
+	for mod_file in _read_mod_json_files("characters"):
+		var char_def: CharacterDefinition = CharacterDefinition.from_json_dict(mod_file["data"], MODS_ROOT.path_join(mod_file["mod"]).path_join("images"))
+		if char_def and _can_register_mod_content(char_def.character_id, character_definitions, "character", mod_file):
+			char_def.is_modded = true
+			character_definitions[char_def.character_id] = char_def
 
-func _load_character_from_mod(mod_name: String, json_path: String) -> CharacterDefinition:
-	var mod_characters_dir: String = MODS_ROOT.path_join(mod_name).path_join("images")
-
-	var file: FileAccess = FileAccess.open(json_path, FileAccess.READ)
-	if not file:
-		push_error("Could not open mod character file: %s" % json_path)
-		return null
-
-	var parsed = JSON.parse_string(file.get_as_text())
-	if parsed == null or not (parsed is Dictionary):
-		push_error("Invalid JSON in mod character file: %s" % json_path)
-		return null
-
-	return CharacterDefinition.from_json_dict(parsed, mod_characters_dir)
-
-### === Mod-loaded passives (JSON, unrelated to the .tres pack scan) ===
 func _load_passive_effect_definitions_from_mods() -> void:
-	var dir = DirAccess.open(MODS_ROOT)
-	if not dir:
-		return
-	dir.list_dir_begin()
-	var folder_name = dir.get_next()
-	while folder_name != "":
-		if dir.current_is_dir() and not folder_name.begins_with(".") and SettingsManager.is_mod_enabled_on_disk(folder_name):
-			var passives_folder: String = MODS_ROOT + "/" + folder_name + "/passives/"
-			if DirAccess.dir_exists_absolute(passives_folder):
-				var json_files = Utils.get_files_in_folder(passives_folder, "json")
-				for file in json_files:
-					var passive_def = _load_passive_from_mod(folder_name, file)
-					if passive_def is not PassiveEffectDefinition:
-						continue
-					passive_def.is_modded = true
-					passive_effect_definitions[passive_def.passive_id] = passive_def
-		folder_name = dir.get_next()
-	dir.list_dir_end()
+	for mod_file in _read_mod_json_files("passives"):
+		var passive_def: PassiveEffectDefinition = PassiveEffectDefinition.from_json_dict(mod_file["data"], MODS_ROOT.path_join(mod_file["mod"]).path_join("images"))
+		if passive_def and _can_register_mod_content(passive_def.passive_id, passive_effect_definitions, "passive", mod_file):
+			passive_def.is_modded = true
+			passive_effect_definitions[passive_def.passive_id] = passive_def
 
-func _load_passive_from_mod(mod_name: String, json_path: String) -> PassiveEffectDefinition:
-	var mod_images_dir: String = MODS_ROOT.path_join(mod_name).path_join("images")
-
-	var file: FileAccess = FileAccess.open(json_path, FileAccess.READ)
-	if not file:
-		push_error("Could not open mod passive file: %s" % json_path)
-		return null
-
-	var parsed = JSON.parse_string(file.get_as_text())
-	if parsed == null or not (parsed is Dictionary):
-		push_error("Invalid JSON in mod passive file: %s" % json_path)
-		return null
-
-	return PassiveEffectDefinition.from_json_dict(parsed, mod_images_dir)
-
-### === Mod-loaded event cards (JSON, unrelated to the .tres pack scan) ===
 func _load_event_card_definitions_from_mods() -> void:
-	var dir = DirAccess.open(MODS_ROOT)
-	if not dir:
-		return
-	dir.list_dir_begin()
-	var folder_name = dir.get_next()
-	while folder_name != "":
-		if dir.current_is_dir() and not folder_name.begins_with(".") and SettingsManager.is_mod_enabled_on_disk(folder_name):
-			var event_cards_folder: String = MODS_ROOT + "/" + folder_name + "/event_cards/"
-			if DirAccess.dir_exists_absolute(event_cards_folder):
-				var json_files = Utils.get_files_in_folder(event_cards_folder, "json")
-				for file in json_files:
-					var card_def = _load_event_card_from_mod(folder_name, file)
-					if card_def is not EventCardDefinition:
-						continue
-					card_def.is_modded = true
-					event_cards_by_id[card_def.card_type_id] = card_def
-		folder_name = dir.get_next()
-	dir.list_dir_end()
-
-func _load_event_card_from_mod(mod_name: String, json_path: String) -> EventCardDefinition:
-	var mod_images_dir: String = MODS_ROOT.path_join(mod_name).path_join("images")
-
-	var file: FileAccess = FileAccess.open(json_path, FileAccess.READ)
-	if not file:
-		push_error("Could not open mod event card file: %s" % json_path)
-		return null
-
-	var parsed = JSON.parse_string(file.get_as_text())
-	if parsed == null or not (parsed is Dictionary):
-		push_error("Invalid JSON in mod event card file: %s" % json_path)
-		return null
-
-	return EventCardDefinition.from_json_dict(parsed, mod_images_dir)
+	for mod_file in _read_mod_json_files("event_cards"):
+		var card_def: EventCardDefinition = EventCardDefinition.from_json_dict(mod_file["data"], MODS_ROOT.path_join(mod_file["mod"]).path_join("images"))
+		if card_def and _can_register_mod_content(card_def.card_type_id, event_cards_by_id, "event card", mod_file):
+			card_def.is_modded = true
+			event_cards_by_id[card_def.card_type_id] = card_def
 
 ### === Mod-loaded statuses (JSON) ===
 ### Content names statuses by id (ApplyStatusEffect.status_id), looked up when used, so the load order doesn't matter.
@@ -868,10 +818,6 @@ func _load_reward_definitions_from_mods() -> void:
 					var existing_reward: RewardDefinition = unlock_rewards.get(reward.reward_id, null)
 					if existing_reward and not existing_reward.is_modded:
 						push_warning("Mod '%s': reward '%s' has the id of one of the game's rewards - skipped." % [folder_name, reward.reward_id])
-						continue
-					var missing_content: Array[String] = _get_missing_reward_content(reward)
-					if not missing_content.is_empty():
-						push_warning("Mod '%s': reward '%s' names content that isn't installed (%s) - skipped." % [folder_name, reward.reward_id, ", ".join(missing_content)])
 						continue
 					reward.is_modded = true
 					unlock_rewards[reward.reward_id] = reward
@@ -989,14 +935,130 @@ func _drop_mod_moves_naming_missing_content() -> bool:
 			removed_any = true
 	return removed_any
 
-### Mod Moves and mod opponent types name each other: removing a Move can leave a type with no Moves (removed), and removing a
-### type can leave a Move that summons it naming nothing (removed). Repeated until nothing changes.
-func _drop_mod_moves_and_types_naming_missing_content() -> void:
+### Mod content naming content that isn't installed (another mod's, disabled or removed, or a type that doesn't load in this
+### mode): Moves, Actions, rewards, statuses, passives and cards are removed whole; opponent types only lose what is missing
+### (and are removed with no Move left), characters only lose what is missing (checked last). They name each other (removing a Move can leave a type with no Moves, removing a type leaves a Move that
+### summons it naming nothing, an Action can give a removed reward...), so this is repeated until nothing changes.
+func _drop_mod_content_naming_missing_content() -> void:
 	var changed: bool = true
 	while changed:
 		changed = _drop_mod_moves_naming_missing_content()
 		if _drop_missing_content_from_mod_opponent_types():
 			changed = true
+		if _drop_mod_player_actions_naming_missing_content():
+			changed = true
+		if _drop_mod_rewards_naming_missing_content():
+			changed = true
+		if _drop_mod_effect_definitions_naming_missing_content(status_effects_by_id, "status"):
+			changed = true
+		if _drop_mod_effect_definitions_naming_missing_content(passive_effect_definitions, "passive"):
+			changed = true
+		if _drop_mod_event_cards_naming_missing_content():
+			changed = true
+	_drop_missing_content_from_mod_characters()
+
+### Mod statuses or passives (registry: status_effects_by_id / passive_effect_definitions) whose ticks or triggers name content
+### that isn't installed are removed whole (EffectDefinition.get_referenced_content_ids()). True when one was removed.
+func _drop_mod_effect_definitions_naming_missing_content(registry: Dictionary, kind: String) -> bool:
+	var removed_any: bool = false
+	for content_id: String in registry.keys():
+		var effect_def: EffectDefinition = registry[content_id]
+		if not effect_def.get("is_modded"):
+			continue
+		var missing_content: Array[String] = _get_missing_content(effect_def.get_referenced_content_ids())
+		if missing_content.is_empty():
+			continue
+		push_warning("Mod %s '%s' names content that isn't installed (%s) - skipped." % [kind, content_id, ", ".join(missing_content)])
+		registry.erase(content_id)
+		removed_any = true
+	return removed_any
+
+### Mod event cards whose effects name content that isn't installed are removed whole; sound effects that aren't installed
+### are only left out. True when a card was removed.
+func _drop_mod_event_cards_naming_missing_content() -> bool:
+	var removed_any: bool = false
+	for card_id: String in event_cards_by_id.keys():
+		var card_def: EventCardDefinition = event_cards_by_id[card_id]
+		if not card_def.is_modded:
+			continue
+		var missing_sounds: Array[String] = []
+		card_def.sound_effect_ids = _keep_registered_ids(card_def.sound_effect_ids, sound_effects_by_id, "sound effect", missing_sounds)
+		if not missing_sounds.is_empty():
+			push_warning("Mod card '%s' names sound effects that aren't installed (%s) - left out." % [card_id, ", ".join(missing_sounds)])
+		var missing_content: Array[String] = _get_missing_content(card_def.get_referenced_content_ids())
+		if missing_content.is_empty():
+			continue
+		push_warning("Mod card '%s' names content that isn't installed (%s) - skipped." % [card_id, ", ".join(missing_content)])
+		event_cards_by_id.erase(card_id)
+		removed_any = true
+	return removed_any
+
+### A mod character loses the starting passives, Actions and cards that aren't installed (a character with no starting
+### Action left keeps the game's default ones, see CharacterDefinition.apply_to_save_game()). Runs after the other checks, so
+### it sees what they removed; it removes nothing itself.
+func _drop_missing_content_from_mod_characters() -> void:
+	for character_id: String in character_definitions.keys():
+		var char_def: CharacterDefinition = character_definitions[character_id]
+		if not char_def.is_modded:
+			continue
+		var missing: Array[String] = []
+		char_def.starting_passives = _keep_registered_ids(char_def.starting_passives, passive_effect_definitions, "passive", missing)
+		char_def.starting_actions = _keep_registered_ids(char_def.starting_actions, player_actions_by_id, "Action", missing)
+		for card_id in char_def.extra_starting_cards.keys():
+			if not event_cards_by_id.has(card_id):
+				missing.append("card '%s'" % card_id)
+				char_def.extra_starting_cards.erase(card_id)
+		for action_id in char_def.starting_reward_cards_for_actions.keys():
+			var kept_cards: Array = []
+			for card_id in char_def.starting_reward_cards_for_actions[action_id]:
+				if event_cards_by_id.has(card_id) and player_actions_by_id.has(action_id):
+					kept_cards.append(card_id)
+				else:
+					missing.append("Reward Card '%s' for '%s'" % [card_id, action_id])
+			char_def.starting_reward_cards_for_actions[action_id] = kept_cards
+		if char_def.starting_ally_card != "" and not event_cards_by_id.has(char_def.starting_ally_card):
+			missing.append("ally card '%s'" % char_def.starting_ally_card)
+			char_def.starting_ally_card = ""
+		if char_def.starting_orgasm_card != "" and not event_cards_by_id.has(char_def.starting_orgasm_card):
+			missing.append("Orgasm Card '%s'" % char_def.starting_orgasm_card)
+			char_def.starting_orgasm_card = ""
+		if not missing.is_empty():
+			push_warning("Mod character '%s' names content that isn't installed (%s) - left out." % [character_id, ", ".join(missing)])
+
+### A mod reward that gives content that isn't installed is removed whole (decided 2026-10-26). True when one was removed.
+func _drop_mod_rewards_naming_missing_content() -> bool:
+	var removed_any: bool = false
+	for reward_id: String in unlock_rewards.keys():
+		var reward: RewardDefinition = unlock_rewards[reward_id]
+		if not reward.is_modded:
+			continue
+		var missing_content: Array[String] = _get_missing_reward_content(reward)
+		if missing_content.is_empty():
+			continue
+		push_warning("Mod reward '%s' names content that isn't installed (%s) - skipped." % [reward_id, ", ".join(missing_content)])
+		unlock_rewards.erase(reward_id)
+		removed_any = true
+	return removed_any
+
+### A mod Action whose effects or triggers name content that isn't installed is removed whole; Reward Cards that aren't
+### installed are only left out. True when an Action was removed.
+func _drop_mod_player_actions_naming_missing_content() -> bool:
+	var removed_any: bool = false
+	for action_id: String in player_actions_by_id.keys():
+		var action: PlayerAction = player_actions_by_id[action_id]
+		if not action.is_modded:
+			continue
+		var missing_cards: Array[String] = []
+		action.reward_card_ids = _keep_registered_ids(action.reward_card_ids, event_cards_by_id, "card", missing_cards)
+		if not missing_cards.is_empty():
+			push_warning("Mod Action '%s' names Reward Cards that aren't installed (%s) - left out." % [action_id, ", ".join(missing_cards)])
+		var missing_content: Array[String] = _get_missing_content(action.get_referenced_content_ids())
+		if missing_content.is_empty():
+			continue
+		push_warning("Mod Action '%s' names content that isn't installed (%s) - skipped." % [action_id, ", ".join(missing_content)])
+		player_actions_by_id.erase(action_id)
+		removed_any = true
+	return removed_any
 
 ### Leaves the Moves, passives and shared name lists that aren't installed out of every mod opponent type (a Partner just
 ### has fewer Moves / passives / names). A type with no Move left is removed. True when a type was removed.
@@ -1010,6 +1072,9 @@ func _drop_missing_content_from_mod_opponent_types() -> bool:
 		opponent_type.available_action_ids = _keep_registered_ids(opponent_type.available_action_ids, opponent_actions, "Move", missing)
 		opponent_type.passive_effects = _keep_registered_ids(opponent_type.passive_effects, passive_effect_definitions, "passive", missing)
 		opponent_type.name_list_ids = _keep_registered_ids(opponent_type.name_list_ids, name_lists_by_id, "name list", missing)
+		if opponent_type.idle_picture_list_id != "" and not picture_lists.has(opponent_type.idle_picture_list_id):
+			missing.append("picture list '%s'" % opponent_type.idle_picture_list_id)
+			opponent_type.idle_picture_list_id = ""
 		if not missing.is_empty():
 			push_warning("Mod opponent type '%s' names content that isn't installed (%s) - left out." % [type_id, ", ".join(missing)])
 		if opponent_type.available_action_ids.is_empty():
@@ -1059,6 +1124,98 @@ func _load_opponent_types_from_mods() -> void:
 			continue
 		opponent_type.is_modded = true
 		opponent_types[opponent_type.opponent_type_id] = opponent_type
+
+### === Mod-loaded sound effects, music tracks, picture lists and keywords (JSON) ===
+### Each may not take the id of the game's own (it would change the game's sounds, music, pictures or texts): skipped.
+### Their files are read from the mod's sounds/, music/ and images/ folders.
+func _load_sound_effects_from_mods() -> void:
+	for mod_file in _read_mod_json_files("sound_effects"):
+		var sound_effect: AudioStreamsForSoundEffect = AudioStreamsForSoundEffect.from_json_dict(mod_file["data"], MODS_ROOT.path_join(mod_file["mod"]))
+		if _can_register_mod_content(sound_effect.sound_effect_id, sound_effects_by_id, "sound effect", mod_file):
+			sound_effect.is_modded = true
+			sound_effects_by_id[sound_effect.sound_effect_id] = sound_effect
+
+func _load_music_tracks_from_mods() -> void:
+	for mod_file in _read_mod_json_files("music_tracks"):
+		var track: MusicTrack = MusicTrack.from_json_dict(mod_file["data"], MODS_ROOT.path_join(mod_file["mod"]))
+		if _can_register_mod_content(track.track_id, music_tracks_by_id, "music track", mod_file):
+			track.is_modded = true
+			music_tracks_by_id[track.track_id] = track
+
+func _load_picture_lists_from_mods() -> void:
+	for mod_file in _read_mod_json_files("picture_lists"):
+		var picture_list: PictureList = PictureList.from_json_dict(mod_file["data"], MODS_ROOT.path_join(mod_file["mod"]).path_join("images"))
+		if _can_register_mod_content(picture_list.id, picture_lists, "picture list", mod_file):
+			picture_list.is_modded = true
+			picture_lists[picture_list.id] = picture_list
+
+func _load_gameplay_keywords_from_mods() -> void:
+	for mod_file in _read_mod_json_files("keywords"):
+		var keyword: GameplayKeyword = GameplayKeyword.from_json_dict(mod_file["data"], MODS_ROOT.path_join(mod_file["mod"]).path_join("images"))
+		if _can_register_mod_content(keyword.keyword_id, gameplay_keywords_by_id, "keyword", mod_file):
+			keyword.is_modded = true
+			gameplay_keywords_by_id[keyword.keyword_id] = keyword
+
+### === Mod-loaded Actions (JSON) ===
+### Players get a mod Action like the game's: from a reward (Reward_UnlockPlayerActions) or as a mod character's starting
+### Action. What it names that isn't installed is checked once every mod type has loaded
+### (_drop_mod_player_actions_naming_missing_content()). A save that owns an Action of a removed mod sets it aside
+### (SaveGameState.set_aside_actions).
+func _load_player_actions_from_mods() -> void:
+	for mod_file in _read_mod_json_files("actions"):
+		var action: PlayerAction = PlayerAction.from_json_dict(mod_file["data"], MODS_ROOT.path_join(mod_file["mod"]).path_join("images"))
+		if _can_register_mod_content(action.action_id, player_actions_by_id, "Action", mod_file):
+			action.is_modded = true
+			player_actions_by_id[action.action_id] = action
+
+### === Mod-loaded Action progressions (JSON) ===
+### Registered under each of their Actions, like the game's. An Action that isn't installed, or that already has one of the
+### game's progressions (a mod must not replace the game's reward track), is left out; rewards that aren't installed are
+### left out too. A progression with no Action left is skipped. Loads after the missing-content check of Actions and rewards.
+func _load_action_progressions_from_mods() -> void:
+	for mod_file in _read_mod_json_files("action_progressions"):
+		var progression: ActionProgressionDefinition = ActionProgressionDefinition.from_json_dict(mod_file["data"])
+		_register_mod_action_progression(progression, "Mod '%s': Action progression %s" % [mod_file["mod"], mod_file["path"].get_file()])
+
+### The rules above for one mod progression; label names it in the warnings. True when it was registered.
+func _register_mod_action_progression(progression: ActionProgressionDefinition, label: String) -> bool:
+	var left_out: Array[String] = []
+	var kept_action_ids: Array[String] = []
+	for action_id in progression.action_ids:
+		var existing: ActionProgressionDefinition = action_progress_definitions.get(action_id, null)
+		if not player_actions_by_id.has(action_id):
+			left_out.append("Action '%s' (not installed)" % action_id)
+		elif existing and not existing.is_modded:
+			left_out.append("Action '%s' (has one of the game's progressions)" % action_id)
+		else:
+			kept_action_ids.append(action_id)
+	progression.action_ids = kept_action_ids
+	for reward_id in progression.rewards_per_guy_defeated.keys():
+		if not unlock_rewards.has(reward_id):
+			left_out.append("reward '%s'" % reward_id)
+			progression.rewards_per_guy_defeated.erase(reward_id)
+	progression.action_related_rewards = _keep_registered_ids(progression.action_related_rewards, unlock_rewards, "reward", left_out)
+	if not left_out.is_empty():
+		push_warning("%s - left out: %s." % [label, ", ".join(left_out)])
+	if progression.action_ids.is_empty():
+		push_warning("%s has no Action left - skipped." % label)
+		return false
+	progression.is_modded = true
+	for action_id in progression.action_ids:
+		action_progress_definitions[action_id] = progression
+	return true
+
+### True when a mod item with content_id may be registered in registry: it has an id, and the id isn't one of the game's
+### (a mod item may replace another mod's). Reports why not otherwise.
+func _can_register_mod_content(content_id: String, registry: Dictionary, kind: String, mod_file: Dictionary) -> bool:
+	if content_id == "":
+		push_error("Mod %s file has no id: %s" % [kind, mod_file["path"]])
+		return false
+	var existing: Resource = registry.get(content_id, null)
+	if existing and not existing.get("is_modded"):
+		push_warning("Mod '%s': %s '%s' has the id of one of the game's - skipped." % [mod_file["mod"], kind, content_id])
+		return false
+	return true
 
 ### Every JSON file in user://mods/<mod>/<subfolder>/ of the enabled mods, parsed: {"mod": mod folder name, "path", "data"}.
 ### A file that doesn't hold a JSON object is reported and left out.
@@ -1374,6 +1531,7 @@ func _build_graph_edges() -> void:
 				encounter_prereq_graph[target_id].append(prereq_id)
 				encounter_forward_graph[prereq_id].append(target_id)
 
+### Full Rework: one edge per line on the encounter map (the encounter's own Condition_IsEncounterCleared are ignored).
 func _build_graph_edges_from_encounter_map() -> void:
 	for map_node: EncounterMapNode in encounter_map.nodes.values():
 		if map_node == null:

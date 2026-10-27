@@ -33,15 +33,15 @@ func _init() -> void:
 	set_slot(0, true, PORT_TYPE, PORT_COLOR, true, PORT_TYPE, PORT_COLOR)
 	_keep_title_from_widening_the_node()
 
-### A node that names its encounter by id only (EncounterMapNode.encounter_id: an encounter with no file here, e.g. a
-### base-game encounter on a mod map) shows the id, without a picture.
-func show_map_node(map_node: EncounterMapNode) -> void:
-	var encounter_def: EncounterDefinition = map_node.encounter
+### encounter_info: what the panel found for the node's encounter id ({"name", "picture", "path"}, see
+### _get_encounter_info_for_id() in encounter_map_editor_panel.gd), or {} when there is no encounter file with that id here (e.g. a
+### base-game encounter on a mod map): the node then shows the id, without a picture.
+func show_map_node(map_node: EncounterMapNode, encounter_info: Dictionary) -> void:
 	encounter_id = map_node.get_encounter_id()
 	name = encounter_id
-	if encounter_def:
-		title = encounter_def.encounter_display_name if not encounter_def.encounter_display_name.is_empty() else encounter_id
-		_picture.texture = encounter_def.encounter_picture
+	if not encounter_info.is_empty():
+		title = str(encounter_info["name"])
+		_picture.texture = encounter_info["picture"]
 	else:
 		title = encounter_id
 		_picture.texture = null
@@ -64,7 +64,7 @@ func show_map_node(map_node: EncounterMapNode) -> void:
 	_info_label.text = "\n".join(info_lines)
 	_info_label.visible = not info_lines.is_empty()
 
-	var source_text: String = encounter_def.resource_path if encounter_def else "By id only (no encounter file here)"
+	var source_text: String = str(encounter_info["path"]) if not encounter_info.is_empty() else "By id only (no encounter file here)"
 	tooltip_text = "%s (%s)\n%s" % [title, encounter_id, source_text]
 
 func get_map_position() -> Vector2:

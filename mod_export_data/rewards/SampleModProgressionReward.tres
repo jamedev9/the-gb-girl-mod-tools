@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="Reward_GivePlayerEventCards" format=3]
+
+[ext_resource type="Script" path="res://scripts/object_classes/meta_game_objects/reward_definition/reward_give_player_event_cards.gd" id="1_reward"]
+
+[resource]
+script = ExtResource("1_reward")
+cards_to_give = Dictionary[String, int]({
+"ltb": 1
+})
+reward_id = "sample_mod_progression_reward"
+reward_name = "Sample Progression Reward"
+reward_description = "Get 1 {CARD:ltb} card."

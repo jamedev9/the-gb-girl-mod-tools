@@ -99,18 +99,7 @@ func should_action_fire(
 ### The registered content this Move's effects hand out or act with (kind -> ids, see EffectIntent.get_referenced_content_ids()).
 ### A mod Move naming something that isn't installed is skipped on load.
 func get_referenced_content_ids() -> Dictionary:
-	var referenced: Dictionary = {}
-	for intent in effect_intents:
-		if intent == null or intent.effect_intent == null:
-			continue
-		var intent_ids: Dictionary = intent.effect_intent.get_referenced_content_ids()
-		for kind in intent_ids.keys():
-			var ids: Array = referenced.get(kind, [])
-			for content_id in intent_ids[kind]:
-				if content_id not in ids:
-					ids.append(content_id)
-			referenced[kind] = ids
-	return referenced
+	return EffectAndTargetIntent.collect_referenced_content_ids(effect_intents)
 
 #region Mod export
 func get_mod_export_subfolder() -> String:

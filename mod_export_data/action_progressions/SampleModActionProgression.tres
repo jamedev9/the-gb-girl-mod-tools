@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="ActionProgressionDefinition" format=3]
+
+[ext_resource type="Script" path="res://resources/action_progression_definitions/action_progression_definition.gd" id="1_progression"]
+
+[resource]
+script = ExtResource("1_progression")
+action_ids = Array[String](["sample_mod_action"])
+rewards_per_guy_defeated = Dictionary[String, int]({
+"sample_mod_progression_reward": 2
+})

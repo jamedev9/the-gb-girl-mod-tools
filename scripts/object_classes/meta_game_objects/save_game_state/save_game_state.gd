@@ -68,6 +68,8 @@ var DEFAULT_CURRENT_BUILD: Dictionary ={
 func _retroactively_add_missing_features_() -> void:
 	### Called by meta game to add new features when loading old saves.
 	_restore_set_aside_cards()
+	_restore_set_aside_actions()
+	_restore_set_aside_passives()
 	_give_player_missing_passives()
 	_add_default_passives_()
 	_add_default_passives_to_all_builds()
@@ -80,6 +82,8 @@ func _retroactively_add_missing_features_() -> void:
 	_apply_analqueen_max_pleasure_buff()
 	_add_missing_edging_threshold()
 	_set_aside_cards_that_are_not_installed()
+	_set_aside_actions_that_are_not_installed()
+	_set_aside_passives_that_are_not_installed()
 
 #region Cards that aren't installed (a disabled or removed mod's)
 ### Every card id the save holds whose card isn't registered (its mod is disabled or removed) is moved out of the lists the
@@ -188,6 +192,82 @@ func _restore_set_aside_cards() -> void:
 				if not build.is_empty() and str(build.get("current_orgasm_card_id", "")) == str(entry.get("replaced_with", "")):
 					build["current_orgasm_card_id"] = card_id
 	set_aside_cards = still_set_aside
+
+### Actions of a disabled or removed mod, set aside like cards (set_aside_cards): moved out of owned_player_actions /
+### currently_used_player_actions on every load, put back when the Action is installed again. Each entry:
+### {"where": "owned" / "used", "action_id": ...}. Untyped and JSON-safe like all save data. The other places a save names an
+### Action (its progress, its Reward Cards, its stats) are keyed by the id and only read for Actions the player has, so
+### they are kept as they are.
+var set_aside_actions: Array = []
+
+func _is_action_installed(action_id: String) -> bool:
+	return AutoloadDatabase.player_actions_by_id.has(action_id)
+
+func _set_aside_actions_that_are_not_installed() -> void:
+	for action_id in owned_player_actions.duplicate():
+		if not _is_action_installed(action_id):
+			set_aside_actions.append({"where": "owned", "action_id": action_id})
+			owned_player_actions.erase(action_id)
+	for action_id in currently_used_player_actions.duplicate():
+		if not _is_action_installed(action_id):
+			set_aside_actions.append({"where": "used", "action_id": action_id})
+			currently_used_player_actions.erase(action_id)
+
+func _restore_set_aside_actions() -> void:
+	var still_set_aside: Array = []
+	for entry in set_aside_actions:
+		var action_id: String = str(entry.get("action_id", ""))
+		if not _is_action_installed(action_id):
+			still_set_aside.append(entry)
+			continue
+		var target_list: Array = owned_player_actions if str(entry.get("where", "")) == "owned" else currently_used_player_actions
+		if action_id not in target_list:
+			target_list.append(action_id)
+	set_aside_actions = still_set_aside
+
+### Passives of a disabled or removed mod, set aside like cards and Actions: moved out of player_owned_passives and every
+### build's build_passives on every load, put back when the passive is installed again (a build preset deleted meanwhile is
+### skipped). Each entry: {"where": "owned" / "build", "passive_id": ..., "build": ("" = the current build)}.
+var set_aside_passives: Array = []
+
+func _is_passive_installed(passive_id: String) -> bool:
+	return AutoloadDatabase.passive_effect_definitions.has(passive_id)
+
+func _set_aside_passives_that_are_not_installed() -> void:
+	for passive_id in player_owned_passives.duplicate():
+		if not _is_passive_installed(passive_id):
+			set_aside_passives.append({"where": "owned", "passive_id": passive_id})
+			player_owned_passives.erase(passive_id)
+	_set_aside_build_passives(current_build, _BUILD_CURRENT)
+	for build_name in saved_builds.keys():
+		_set_aside_build_passives(saved_builds[build_name], build_name)
+
+func _set_aside_build_passives(build: Dictionary, build_name: String) -> void:
+	var build_passives: Array = build.get("build_passives", [])
+	for passive_id in build_passives.duplicate():
+		if not _is_passive_installed(passive_id):
+			set_aside_passives.append({"where": "build", "passive_id": passive_id, "build": build_name})
+			build_passives.erase(passive_id)
+
+func _restore_set_aside_passives() -> void:
+	var still_set_aside: Array = []
+	for entry in set_aside_passives:
+		var passive_id: String = str(entry.get("passive_id", ""))
+		if not _is_passive_installed(passive_id):
+			still_set_aside.append(entry)
+			continue
+		if str(entry.get("where", "")) == "owned":
+			if passive_id not in player_owned_passives:
+				player_owned_passives.append(passive_id)
+			continue
+		var build: Dictionary = _get_build_for_set_aside_entry(entry)
+		if build.is_empty():
+			continue
+		if not build.has("build_passives"):
+			build["build_passives"] = []
+		if passive_id not in build["build_passives"]:
+			build["build_passives"].append(passive_id)
+	set_aside_passives = still_set_aside
 
 ### The build a set-aside entry belongs to; empty when it was a preset that has been deleted since.
 func _get_build_for_set_aside_entry(entry: Dictionary) -> Dictionary:
@@ -1158,6 +1238,8 @@ func to_dict() -> Dictionary:
 		"retroactive_migrations_applied":retroactive_migrations_applied,
 		"selected_map_id":selected_map_id,
 		"set_aside_cards":set_aside_cards,
+		"set_aside_actions":set_aside_actions,
+		"set_aside_passives":set_aside_passives,
 		#"tutorial_stages_completed":tutorial_stages_completed
 	}
 
@@ -1186,6 +1268,8 @@ func from_dict(data: Dictionary) -> void:
 	custom_encounter_state = data.get("custom_encounter_state",{})
 	selected_map_id = str(data.get("selected_map_id", ""))
 	set_aside_cards = data.get("set_aside_cards", [])
+	set_aside_actions = data.get("set_aside_actions", [])
+	set_aside_passives = data.get("set_aside_passives", [])
 	orgasms_lifetime = data.get("orgasms_lifetime",0)
 	orgams_cards_unlocked = data.get("orgams_cards_unlocked",["orgasm_muscle_spasm"])
 	most_guys_cumming_in_one_turn = data.get("most_guys_cumming_in_one_turn",0)

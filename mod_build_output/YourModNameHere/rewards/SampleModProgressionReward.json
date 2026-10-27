@@ -1,0 +1,11 @@
+{
+	"_class": "Reward_GivePlayerEventCards",
+	"cards_to_give": {
+		"ltb": 1
+	},
+	"reward_description": "Get 1 {CARD:ltb} card.",
+	"reward_id": "sample_mod_progression_reward",
+	"reward_name": "Sample Progression Reward",
+	"reward_picture": "",
+	"unlock_conditions": []
+}

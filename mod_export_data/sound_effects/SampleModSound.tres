@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="AudioStreamsForSoundEffect" format=3]
+
+[ext_resource type="Script" path="res://content_packs/00_real_porn_035_and_earlier/assets/audio/sound_effects/audio_streams_for_sound_effect.gd" id="1_sound"]
+[ext_resource type="AudioStream" path="res://mod_export_data/sounds/sample_shuffle.wav" id="2_stream"]
+
+[resource]
+script = ExtResource("1_sound")
+sound_effect_id = "sample_mod_sound"
+audio_streams = Array[AudioStream]([ExtResource("2_stream")])

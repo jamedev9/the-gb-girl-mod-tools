@@ -1,0 +1,11 @@
+{
+	"_class": "Reward_UnlockPlayerActions",
+	"action_ids": [
+		"sample_mod_action"
+	],
+	"reward_description": "Unlock the {ACTION:sample_mod_action} Action.",
+	"reward_id": "sample_mod_unlock_action",
+	"reward_name": "Sample Mod Action",
+	"reward_picture": "sample_action.png",
+	"unlock_conditions": []
+}
